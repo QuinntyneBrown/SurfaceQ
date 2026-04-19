@@ -43,6 +43,12 @@ function discover(file) {
     }
     if (ts.isClassDeclaration(node) && node.name) {
       exports.push({ name: node.name.text, kind: 'class', isType: false });
+    } else if (ts.isInterfaceDeclaration(node)) {
+      exports.push({ name: node.name.text, kind: 'interface', isType: true });
+    } else if (ts.isTypeAliasDeclaration(node)) {
+      exports.push({ name: node.name.text, kind: 'type', isType: true });
+    } else if (ts.isEnumDeclaration(node)) {
+      exports.push({ name: node.name.text, kind: 'enum', isType: false });
     }
   });
   return exports;
