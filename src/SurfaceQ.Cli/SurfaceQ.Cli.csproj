@@ -20,4 +20,8 @@
     <InternalsVisibleTo Include="SurfaceQ.Cli.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\SurfaceQ.Core\SurfaceQ.Core.csproj" />
+  </ItemGroup>
+
 </Project>
