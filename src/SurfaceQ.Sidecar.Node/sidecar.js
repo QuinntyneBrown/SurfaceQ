@@ -49,6 +49,14 @@ function discover(file) {
       exports.push({ name: node.name.text, kind: 'type', isType: true });
     } else if (ts.isEnumDeclaration(node)) {
       exports.push({ name: node.name.text, kind: 'enum', isType: false });
+    } else if (ts.isFunctionDeclaration(node) && node.name) {
+      exports.push({ name: node.name.text, kind: 'function', isType: false });
+    } else if (ts.isVariableStatement(node)) {
+      for (const decl of node.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name)) {
+          exports.push({ name: decl.name.text, kind: 'const', isType: false });
+        }
+      }
     }
   });
   return exports;
