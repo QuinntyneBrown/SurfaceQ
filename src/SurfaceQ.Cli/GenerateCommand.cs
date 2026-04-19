@@ -2,9 +2,12 @@ namespace SurfaceQ.Cli;
 
 internal static class GenerateCommand
 {
-    public static int Run(string? project, Action<string> info, Action<string> warn, Action<string> error)
+    public static int Run(string? project, Action<string> info, Action<string> warn, Action<string> error) =>
+        Run(project, info, _ => { }, warn, error);
+
+    public static int Run(string? project, Action<string> info, Action<string> trace, Action<string> warn, Action<string> error)
     {
-        var result = OutputPipeline.Build(project, info, warn, error);
+        var result = OutputPipeline.Build(project, info, trace, warn, error);
         if (result.ExitCode != 0)
         {
             return result.ExitCode;

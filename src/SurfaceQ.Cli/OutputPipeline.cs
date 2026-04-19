@@ -8,6 +8,11 @@ internal static class OutputPipeline
 {
     public static PipelineResult Build(string? project, Action<string> info, Action<string> warn, Action<string> error)
     {
+        return Build(project, info, _ => { }, warn, error);
+    }
+
+    public static PipelineResult Build(string? project, Action<string> info, Action<string> trace, Action<string> warn, Action<string> error)
+    {
         var startPath = ResolveStartPath(project);
         var manifest = new ProjectLocator().Locate(startPath);
         if (manifest == null)
@@ -28,7 +33,8 @@ internal static class OutputPipeline
 
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(context.ManifestPath))!;
         var sources = new SourceFileWalker().Walk(context).ToList();
-        var (files, errors) = DiscoverAllExports(sources, manifestDir, warn);
+        trace($"trace: walker returned {sources.Count} source file(s)");
+        var (files, errors) = DiscoverAllExports(sources, manifestDir, trace, warn);
         if (errors.Count > 0)
         {
             foreach (var msg in errors)
@@ -57,13 +63,16 @@ internal static class OutputPipeline
     private static (List<FileExports> Files, List<string> Errors) DiscoverAllExports(
         List<string> sources,
         string manifestDir,
+        Action<string> trace,
         Action<string> warn)
     {
         var grouped = new Dictionary<string, Dictionary<string, bool>>(StringComparer.OrdinalIgnoreCase);
         var warnedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var errorMessages = new List<string>();
 
-        using var sidecar = new SidecarClient(ResolveSidecarScript());
+        var scriptPath = ResolveSidecarScript();
+        trace($"trace: spawning sidecar from '{scriptPath}'");
+        using var sidecar = new SidecarClient(scriptPath);
         var id = 0;
         foreach (var source in sources)
         {
