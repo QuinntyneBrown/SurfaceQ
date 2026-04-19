@@ -47,7 +47,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 18 | [Renderer: two-space indent + trailing newline](./18-renderer-formatting.md) | L2-011 | [x] |
 | 19 | [Empty scan root → header-only file](./19-empty-scan-root.md) | L2-006 | [x] |
 | 20 | [Sidecar: spawn + JSON round-trip](./20-sidecar-roundtrip.md) | L2-013 | [x] |
-| 21 | [Sidecar: discover class export](./21-sidecar-class.md) | L2-008 | [ ] |
+| 21 | [Sidecar: discover class export](./21-sidecar-class.md) | L2-008 | [x] |
 | 22 | [Sidecar: discover interface/type/enum](./22-sidecar-types.md) | L2-008 | [ ] |
 | 23 | [Sidecar: discover const/function/InjectionToken](./23-sidecar-values.md) | L2-008 | [ ] |
 | 24 | [Sidecar: handle `export { X } from` and `export type { X }`](./24-sidecar-reexports.md) | L2-008 | [ ] |

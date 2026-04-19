@@ -6,3 +6,4 @@ obj/
 .idea/
 *.suo
 TestResults/
+node_modules/

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
 const readline = require('readline');
+const ts = require('typescript');
 
 const rl = readline.createInterface({ input: process.stdin });
 
@@ -16,7 +18,47 @@ rl.on('line', (line) => {
     return;
   }
   if (msg.method === 'ping') {
-    const response = { jsonrpc: '2.0', id: msg.id, result: 'pong' };
-    process.stdout.write(JSON.stringify(response) + '\n');
+    respond(msg.id, 'pong');
+    return;
+  }
+  if (msg.method === 'discover') {
+    const file = msg.params && msg.params.file;
+    respond(msg.id, discover(file));
+    return;
   }
 });
+
+function respond(id, result) {
+  const response = { jsonrpc: '2.0', id: id, result: result };
+  process.stdout.write(JSON.stringify(response) + '\n');
+}
+
+function discover(file) {
+  const content = fs.readFileSync(file, 'utf8');
+  const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+  const exports = [];
+  ts.forEachChild(sourceFile, (node) => {
+    if (!hasExportModifier(node)) {
+      return;
+    }
+    if (ts.isClassDeclaration(node) && node.name) {
+      exports.push({ name: node.name.text, kind: 'class', isType: false });
+    }
+  });
+  return exports;
+}
+
+function hasExportModifier(node) {
+  const modifiers = typeof ts.getModifiers === 'function'
+    ? ts.getModifiers(node)
+    : node.modifiers;
+  if (!modifiers) {
+    return false;
+  }
+  for (const m of modifiers) {
+    if (m.kind === ts.SyntaxKind.ExportKeyword) {
+      return true;
+    }
+  }
+  return false;
+}
