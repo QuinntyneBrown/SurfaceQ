@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const readline = require('readline');
 const ts = require('typescript');
 
@@ -34,15 +35,42 @@ function respond(id, result) {
 }
 
 function discover(file) {
-  const content = fs.readFileSync(file, 'utf8');
-  const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
   const exports = [];
+  collectFromFile(file, exports, new Set());
+  return exports;
+}
+
+function collectFromFile(file, exports, visited) {
+  if (visited.has(file)) {
+    return;
+  }
+  visited.add(file);
+  let content;
+  try {
+    content = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    return;
+  }
+  const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+  const dir = path.dirname(file);
   ts.forEachChild(sourceFile, (node) => {
-    if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
-      const declTypeOnly = node.isTypeOnly === true;
-      for (const el of node.exportClause.elements) {
-        const isType = declTypeOnly || el.isTypeOnly === true;
-        exports.push({ name: el.name.text, kind: 'reexport', isType });
+    if (ts.isExportDeclaration(node)) {
+      const specifierText = node.moduleSpecifier && node.moduleSpecifier.text;
+      if (!node.exportClause) {
+        if (specifierText) {
+          const resolved = resolveModule(dir, specifierText);
+          if (resolved) {
+            collectFromFile(resolved, exports, visited);
+          }
+        }
+        return;
+      }
+      if (ts.isNamedExports(node.exportClause)) {
+        const declTypeOnly = node.isTypeOnly === true;
+        for (const el of node.exportClause.elements) {
+          const isType = declTypeOnly || el.isTypeOnly === true;
+          exports.push({ name: el.name.text, kind: 'reexport', isType, file });
+        }
       }
       return;
     }
@@ -50,24 +78,37 @@ function discover(file) {
       return;
     }
     if (ts.isClassDeclaration(node) && node.name) {
-      exports.push({ name: node.name.text, kind: 'class', isType: false });
+      exports.push({ name: node.name.text, kind: 'class', isType: false, file });
     } else if (ts.isInterfaceDeclaration(node)) {
-      exports.push({ name: node.name.text, kind: 'interface', isType: true });
+      exports.push({ name: node.name.text, kind: 'interface', isType: true, file });
     } else if (ts.isTypeAliasDeclaration(node)) {
-      exports.push({ name: node.name.text, kind: 'type', isType: true });
+      exports.push({ name: node.name.text, kind: 'type', isType: true, file });
     } else if (ts.isEnumDeclaration(node)) {
-      exports.push({ name: node.name.text, kind: 'enum', isType: false });
+      exports.push({ name: node.name.text, kind: 'enum', isType: false, file });
     } else if (ts.isFunctionDeclaration(node) && node.name) {
-      exports.push({ name: node.name.text, kind: 'function', isType: false });
+      exports.push({ name: node.name.text, kind: 'function', isType: false, file });
     } else if (ts.isVariableStatement(node)) {
       for (const decl of node.declarationList.declarations) {
         if (ts.isIdentifier(decl.name)) {
-          exports.push({ name: decl.name.text, kind: 'const', isType: false });
+          exports.push({ name: decl.name.text, kind: 'const', isType: false, file });
         }
       }
     }
   });
-  return exports;
+}
+
+function resolveModule(dir, specifier) {
+  const base = path.resolve(dir, specifier);
+  const candidates = [base + '.ts', path.join(base, 'index.ts'), base];
+  for (const c of candidates) {
+    try {
+      if (fs.statSync(c).isFile()) {
+        return c;
+      }
+    } catch (e) {
+    }
+  }
+  return null;
 }
 
 function hasExportModifier(node) {
