@@ -36,11 +36,12 @@ function respond(id, result) {
 
 function discover(file) {
   const exports = [];
-  collectFromFile(file, exports, new Set());
-  return exports;
+  const warnings = [];
+  collectFromFile(file, exports, warnings, new Set());
+  return { exports, warnings };
 }
 
-function collectFromFile(file, exports, visited) {
+function collectFromFile(file, exports, warnings, visited) {
   if (visited.has(file)) {
     return;
   }
@@ -54,13 +55,17 @@ function collectFromFile(file, exports, visited) {
   const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
   const dir = path.dirname(file);
   ts.forEachChild(sourceFile, (node) => {
+    if (ts.isExportAssignment(node) && !node.isExportEquals) {
+      warnings.push({ code: 'default-export-skipped', file });
+      return;
+    }
     if (ts.isExportDeclaration(node)) {
       const specifierText = node.moduleSpecifier && node.moduleSpecifier.text;
       if (!node.exportClause) {
         if (specifierText) {
           const resolved = resolveModule(dir, specifierText);
           if (resolved) {
-            collectFromFile(resolved, exports, visited);
+            collectFromFile(resolved, exports, warnings, visited);
           }
         }
         return;
@@ -75,6 +80,10 @@ function collectFromFile(file, exports, visited) {
       return;
     }
     if (!hasExportModifier(node)) {
+      return;
+    }
+    if (hasDefaultModifier(node)) {
+      warnings.push({ code: 'default-export-skipped', file });
       return;
     }
     if (ts.isClassDeclaration(node) && node.name) {
@@ -112,6 +121,14 @@ function resolveModule(dir, specifier) {
 }
 
 function hasExportModifier(node) {
+  return hasModifierOfKind(node, ts.SyntaxKind.ExportKeyword);
+}
+
+function hasDefaultModifier(node) {
+  return hasModifierOfKind(node, ts.SyntaxKind.DefaultKeyword);
+}
+
+function hasModifierOfKind(node, kind) {
   const modifiers = typeof ts.getModifiers === 'function'
     ? ts.getModifiers(node)
     : node.modifiers;
@@ -119,7 +136,7 @@ function hasExportModifier(node) {
     return false;
   }
   for (const m of modifiers) {
-    if (m.kind === ts.SyntaxKind.ExportKeyword) {
+    if (m.kind === kind) {
       return true;
     }
   }

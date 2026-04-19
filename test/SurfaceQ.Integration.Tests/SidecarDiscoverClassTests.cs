@@ -31,7 +31,7 @@ public class SidecarDiscoverClassTests
             var responseJson = client.Send(request);
 
             using var doc = JsonDocument.Parse(responseJson);
-            var result = doc.RootElement.GetProperty("result");
+            var result = doc.RootElement.GetProperty("result").GetProperty("exports");
             Assert.Equal(1, result.GetArrayLength());
             var entry = result[0];
             Assert.Equal("Foo", entry.GetProperty("name").GetString());

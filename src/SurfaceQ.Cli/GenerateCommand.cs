@@ -6,7 +6,7 @@ namespace SurfaceQ.Cli;
 
 internal static class GenerateCommand
 {
-    public static int Run(string? project, Action<string> info, Action<string> error)
+    public static int Run(string? project, Action<string> info, Action<string> warn, Action<string> error)
     {
         var startPath = ResolveStartPath(project);
         var manifest = new ProjectLocator().Locate(startPath);
@@ -26,17 +26,19 @@ internal static class GenerateCommand
             return 2;
         }
 
+        var manifestDir = Path.GetDirectoryName(Path.GetFullPath(context.ManifestPath))!;
         var sources = new SourceFileWalker().Walk(context).ToList();
-        var files = DiscoverAllExports(sources);
+        var files = DiscoverAllExports(sources, manifestDir, warn);
         var output = new PublicApiRenderer().Render(files, context);
         File.WriteAllText(context.EntryFile, output);
         info($"info: wrote {context.EntryFile}");
         return 0;
     }
 
-    private static List<FileExports> DiscoverAllExports(List<string> sources)
+    private static List<FileExports> DiscoverAllExports(List<string> sources, string manifestDir, Action<string> warn)
     {
         var grouped = new Dictionary<string, Dictionary<string, bool>>(StringComparer.OrdinalIgnoreCase);
+        var warnedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         using var sidecar = new SidecarClient(ResolveSidecarScript());
         var id = 0;
@@ -52,7 +54,9 @@ internal static class GenerateCommand
             });
             var response = sidecar.Send(request);
             using var doc = JsonDocument.Parse(response);
-            foreach (var entry in doc.RootElement.GetProperty("result").EnumerateArray())
+            var result = doc.RootElement.GetProperty("result");
+
+            foreach (var entry in result.GetProperty("exports").EnumerateArray())
             {
                 var name = entry.GetProperty("name").GetString()!;
                 var isType = entry.GetProperty("isType").GetBoolean();
@@ -68,9 +72,22 @@ internal static class GenerateCommand
                     names[name] = isType;
                 }
             }
+
+            foreach (var w in result.GetProperty("warnings").EnumerateArray())
+            {
+                var code = w.GetProperty("code").GetString()!;
+                var path = w.GetProperty("file").GetString()!;
+                var normalized = Path.GetFullPath(path);
+                if (!warnedFiles.Add(normalized))
+                {
+                    continue;
+                }
+                var rel = Path.GetRelativePath(manifestDir, normalized).Replace('\\', '/');
+                warn($"warn: {code} in '{rel}'");
+            }
         }
 
-        var result = new List<FileExports>();
+        var fileExportsList = new List<FileExports>();
         foreach (var kv in grouped.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             var valueNames = kv.Value.Where(n => !n.Value).Select(n => n.Key).ToList();
@@ -79,9 +96,9 @@ internal static class GenerateCommand
             {
                 continue;
             }
-            result.Add(new FileExports(kv.Key, valueNames, typeNames));
+            fileExportsList.Add(new FileExports(kv.Key, valueNames, typeNames));
         }
-        return result;
+        return fileExportsList;
     }
 
     private static string ResolveSidecarScript()

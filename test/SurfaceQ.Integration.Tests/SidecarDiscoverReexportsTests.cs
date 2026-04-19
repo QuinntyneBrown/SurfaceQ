@@ -34,7 +34,7 @@ public class SidecarDiscoverReexportsTests
             var responseJson = client.Send(request);
 
             using var doc = JsonDocument.Parse(responseJson);
-            var result = doc.RootElement.GetProperty("result");
+            var result = doc.RootElement.GetProperty("result").GetProperty("exports");
             var entries = new Dictionary<string, bool>();
             foreach (var e in result.EnumerateArray())
             {

@@ -29,10 +29,9 @@ public static class Program
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
             var console = ctx.Console;
-            ctx.ExitCode = GenerateCommand.Run(
-                project,
-                message => console.Out.Write(message + Environment.NewLine),
-                message => console.Error.Write(message + Environment.NewLine));
+            Action<string> toStdout = message => console.Out.Write(message + Environment.NewLine);
+            Action<string> toStderr = message => console.Error.Write(message + Environment.NewLine);
+            ctx.ExitCode = GenerateCommand.Run(project, toStdout, toStderr, toStderr);
         });
         return command;
     }

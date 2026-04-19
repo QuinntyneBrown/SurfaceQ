@@ -36,7 +36,7 @@ public class SidecarDiscoverTypesTests
             var responseJson = client.Send(request);
 
             using var doc = JsonDocument.Parse(responseJson);
-            var result = doc.RootElement.GetProperty("result");
+            var result = doc.RootElement.GetProperty("result").GetProperty("exports");
             var entries = new Dictionary<string, (string Kind, bool IsType)>();
             foreach (var e in result.EnumerateArray())
             {
