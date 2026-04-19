@@ -17,6 +17,7 @@ public class ManifestReaderFallbackTests
         try
         {
             var manifest = Path.Combine(dir, "ng-package.json");
+            Directory.CreateDirectory(Path.Combine(dir, "src"));
             File.WriteAllText(manifest, "{}");
             var messages = new List<string>();
 

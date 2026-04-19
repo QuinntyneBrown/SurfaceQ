@@ -30,6 +30,10 @@ public sealed class ManifestReader
 
         var entryFile = Path.GetFullPath(Path.Combine(manifestDir, entryRelative));
         var scanRoot = Path.GetDirectoryName(entryFile)!;
+        if (!Directory.Exists(scanRoot))
+        {
+            throw new ManifestException($"error: entryFile directory does not exist: '{scanRoot}'");
+        }
         return new ProjectContext(manifestPath, entryFile, scanRoot);
     }
 

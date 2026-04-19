@@ -17,6 +17,7 @@ public class ManifestReaderTests
         try
         {
             var manifest = Path.Combine(dir, "ng-package.json");
+            Directory.CreateDirectory(Path.Combine(dir, "src"));
             File.WriteAllText(manifest, "{ \"entryFile\": \"src/public-api.ts\" }");
 
             var context = new ManifestReader().Read(manifest);
