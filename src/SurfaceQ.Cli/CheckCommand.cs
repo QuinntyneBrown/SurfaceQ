@@ -34,6 +34,7 @@ internal static class CheckCommand
         {
             return 0;
         }
+        info($"Drift detected in {entryFile}. Run `surfaceq generate` to update.");
         return 1;
     }
 }
