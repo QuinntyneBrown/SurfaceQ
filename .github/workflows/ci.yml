@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sidecar node_modules
+        shell: bash
+        working-directory: src/SurfaceQ.Sidecar.Node
+        run: npm ci
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --verbosity minimal
+
+      - name: Generate canonical fixture output
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/canonical-fixture"
+          rm -rf "$fixture"
+          mkdir -p "$fixture/src"
+          printf '%s\n' '{ "entryFile": "src/public-api.ts" }' > "$fixture/ng-package.json"
+          printf '%s\n' 'export class A {}' > "$fixture/src/a.ts"
+          printf '%s\n' 'export interface B {}' > "$fixture/src/b.ts"
+          printf '%s\n' 'export const C = 1;' > "$fixture/src/c.ts"
+          dotnet run --project src/SurfaceQ.Cli -c Release --no-build -- generate --project "$fixture"
+          cp "$fixture/src/public-api.ts" public-api-${{ matrix.os }}.ts
+
+      - name: Upload canonical output
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-api-${{ matrix.os }}
+          path: public-api-${{ matrix.os }}.ts
+          if-no-files-found: error
+
+  determinism:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: public-api-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Assert SHA-256 equal across OSes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts
+          echo "Files:"
+          find . -name 'public-api-*.ts' -print
+          hashes=$(find . -name 'public-api-*.ts' -print0 \
+                   | xargs -0 sha256sum \
+                   | awk '{print $1}' \
+                   | sort -u)
+          echo "Distinct SHA-256 hashes:"
+          echo "$hashes"
+          count=$(printf '%s\n' "$hashes" | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "ERROR: public-api.ts differs across OSes (expected 1 distinct hash, got $count)."
+            exit 1
+          fi
