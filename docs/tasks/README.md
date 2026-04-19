@@ -37,7 +37,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 08 | [Malformed manifest → exit 2](./08-malformed-manifest.md) | L2-005 | [x] |
 | 09 | [Missing entryFile directory → exit 2](./09-missing-entryfile-dir.md) | L2-005 | [x] |
 | 10 | [File walker: basic `.ts` discovery](./10-walker-basic.md) | L2-006 | [x] |
-| 11 | [Walker: exclude `*.spec.ts`, `*.stories.ts`, `index.ts`](./11-walker-exclusions.md) | L2-006 | [ ] |
+| 11 | [Walker: exclude `*.spec.ts`, `*.stories.ts`, `index.ts`](./11-walker-exclusions.md) | L2-006 | [x] |
 | 12 | [Walker: exclude `entryFile` and `node_modules`](./12-walker-entry-and-nodemodules.md) | L2-006 | [ ] |
 | 13 | [Walker: deterministic ordering](./13-walker-deterministic.md) | L2-007, L2-012 | [ ] |
 | 14 | [Renderer: header comment block](./14-renderer-header.md) | L2-011 | [ ] |
