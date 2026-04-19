@@ -42,7 +42,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 13 | [Walker: deterministic ordering](./13-walker-deterministic.md) | L2-007, L2-012 | [x] |
 | 14 | [Renderer: header comment block](./14-renderer-header.md) | L2-011 | [x] |
 | 15 | [Renderer: grouped value exports](./15-renderer-grouped-exports.md) | L2-011 | [x] |
-| 16 | [Renderer: type-only exports](./16-renderer-type-exports.md) | L2-011 | [ ] |
+| 16 | [Renderer: type-only exports](./16-renderer-type-exports.md) | L2-011 | [x] |
 | 17 | [Renderer: POSIX specifiers + no `.ts` + relative](./17-renderer-module-specifiers.md) | L2-011 | [ ] |
 | 18 | [Renderer: two-space indent + trailing newline](./18-renderer-formatting.md) | L2-011 | [ ] |
 | 19 | [Empty scan root → header-only file](./19-empty-scan-root.md) | L2-006 | [ ] |

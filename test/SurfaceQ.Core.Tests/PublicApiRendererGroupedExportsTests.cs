@@ -15,7 +15,7 @@ public class PublicApiRendererGroupedExportsTests
         var context = new ProjectContext("ng-package.json", "src/public-api.ts", "src");
         var files = new[]
         {
-            new FileExports("./x", new[] { "A", "B", "C" }),
+            new FileExports("./x", new[] { "A", "B", "C" }, Array.Empty<string>()),
         };
 
         var output = new PublicApiRenderer().Render(files, context);

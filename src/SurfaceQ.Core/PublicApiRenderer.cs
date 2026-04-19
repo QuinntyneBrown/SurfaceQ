@@ -2,7 +2,10 @@ using System.Text;
 
 namespace SurfaceQ.Core;
 
-public sealed record FileExports(string RelativeModulePath, IReadOnlyList<string> ValueNames);
+public sealed record FileExports(
+    string RelativeModulePath,
+    IReadOnlyList<string> ValueNames,
+    IReadOnlyList<string> TypeNames);
 
 public sealed class PublicApiRenderer
 {
@@ -18,15 +21,22 @@ public sealed class PublicApiRenderer
         sb.Append(Header);
         foreach (var file in files)
         {
-            if (file.ValueNames.Count == 0)
+            if (file.ValueNames.Count > 0)
             {
-                continue;
+                sb.Append("export { ");
+                sb.Append(string.Join(", ", file.ValueNames));
+                sb.Append(" } from '");
+                sb.Append(file.RelativeModulePath);
+                sb.Append("';\n");
             }
-            sb.Append("export { ");
-            sb.Append(string.Join(", ", file.ValueNames));
-            sb.Append(" } from '");
-            sb.Append(file.RelativeModulePath);
-            sb.Append("';\n");
+            if (file.TypeNames.Count > 0)
+            {
+                sb.Append("export type { ");
+                sb.Append(string.Join(", ", file.TypeNames));
+                sb.Append(" } from '");
+                sb.Append(file.RelativeModulePath);
+                sb.Append("';\n");
+            }
         }
         return sb.ToString();
     }
