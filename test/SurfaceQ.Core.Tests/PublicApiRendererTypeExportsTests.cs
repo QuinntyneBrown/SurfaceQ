@@ -12,10 +12,17 @@ public class PublicApiRendererTypeExportsTests
     [Fact]
     public void Emits_value_line_then_type_line_for_same_file()
     {
-        var context = new ProjectContext("ng-package.json", "src/public-api.ts", "src");
+        var root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N")));
+        var context = new ProjectContext(
+            Path.Combine(root, "ng-package.json"),
+            Path.Combine(root, "src", "public-api.ts"),
+            Path.Combine(root, "src"));
         var files = new[]
         {
-            new FileExports("./f", new[] { "X" }, new[] { "Y" }),
+            new FileExports(
+                Path.Combine(root, "src", "f.ts"),
+                new[] { "X" },
+                new[] { "Y" }),
         };
 
         var output = new PublicApiRenderer().Render(files, context);
