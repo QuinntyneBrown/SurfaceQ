@@ -27,8 +27,8 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 
 | # | Task | Traces to | Status |
 |---|---|---|---|
-| 01 | [Solution skeleton + `--version`](./01-solution-skeleton-version.md) | L2-021 | [ ] |
-| 02 | [`--help` output](./02-help-output.md) | L2-021 | [ ] |
+| 01 | [Solution skeleton + `--version`](./01-solution-skeleton-version.md) | L2-021 | [x] |
+| 02 | [`--help` output](./02-help-output.md) | L2-021 | [x] |
 | 03 | [Project locator: current dir](./03-project-locator-current-dir.md) | L2-004 | [ ] |
 | 04 | [Project locator: walk upward](./04-project-locator-walk-upward.md) | L2-004 | [ ] |
 | 05 | [Missing manifest → exit 2](./05-missing-manifest-exit-2.md) | L2-004 | [ ] |
