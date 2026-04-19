@@ -1,6 +1,8 @@
+using System.Text;
+
 namespace SurfaceQ.Core;
 
-public sealed record FileExports(string RelativeModulePath);
+public sealed record FileExports(string RelativeModulePath, IReadOnlyList<string> ValueNames);
 
 public sealed class PublicApiRenderer
 {
@@ -12,6 +14,20 @@ public sealed class PublicApiRenderer
 
     public string Render(IReadOnlyList<FileExports> files, ProjectContext context)
     {
-        return Header;
+        var sb = new StringBuilder();
+        sb.Append(Header);
+        foreach (var file in files)
+        {
+            if (file.ValueNames.Count == 0)
+            {
+                continue;
+            }
+            sb.Append("export { ");
+            sb.Append(string.Join(", ", file.ValueNames));
+            sb.Append(" } from '");
+            sb.Append(file.RelativeModulePath);
+            sb.Append("';\n");
+        }
+        return sb.ToString();
     }
 }
