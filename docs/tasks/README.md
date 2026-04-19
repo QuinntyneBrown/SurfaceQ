@@ -39,7 +39,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 10 | [File walker: basic `.ts` discovery](./10-walker-basic.md) | L2-006 | [x] |
 | 11 | [Walker: exclude `*.spec.ts`, `*.stories.ts`, `index.ts`](./11-walker-exclusions.md) | L2-006 | [x] |
 | 12 | [Walker: exclude `entryFile` and `node_modules`](./12-walker-entry-and-nodemodules.md) | L2-006 | [x] |
-| 13 | [Walker: deterministic ordering](./13-walker-deterministic.md) | L2-007, L2-012 | [ ] |
+| 13 | [Walker: deterministic ordering](./13-walker-deterministic.md) | L2-007, L2-012 | [x] |
 | 14 | [Renderer: header comment block](./14-renderer-header.md) | L2-011 | [ ] |
 | 15 | [Renderer: grouped value exports](./15-renderer-grouped-exports.md) | L2-011 | [ ] |
 | 16 | [Renderer: type-only exports](./16-renderer-type-exports.md) | L2-011 | [ ] |

@@ -5,7 +5,9 @@ public sealed class SourceFileWalker
     public IEnumerable<string> Walk(ProjectContext context)
     {
         var entryFull = Path.GetFullPath(context.EntryFile);
-        foreach (var path in Directory.EnumerateFiles(context.ScanRoot, "*.ts", SearchOption.AllDirectories))
+        var scanRoot = Path.GetFullPath(context.ScanRoot);
+        var kept = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(scanRoot, "*.ts", SearchOption.AllDirectories))
         {
             var full = Path.GetFullPath(path);
             if (string.Equals(full, entryFull, StringComparison.OrdinalIgnoreCase))
@@ -29,8 +31,11 @@ public sealed class SourceFileWalker
             {
                 continue;
             }
-            yield return path;
+            kept.Add(full);
         }
+        return kept
+            .OrderBy(p => Path.GetRelativePath(scanRoot, p), StringComparer.Ordinal)
+            .ToList();
     }
 
     private static bool ContainsNodeModulesSegment(string fullPath)
