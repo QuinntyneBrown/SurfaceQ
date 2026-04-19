@@ -38,7 +38,20 @@ internal static class GenerateCommand
             return 2;
         }
         var output = new PublicApiRenderer().Render(files, context);
-        File.WriteAllText(context.EntryFile, output);
+        try
+        {
+            File.WriteAllText(context.EntryFile, output);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            error($"error: cannot write '{context.EntryFile}': {ex.Message}");
+            return 2;
+        }
+        catch (IOException ex)
+        {
+            error($"error: cannot write '{context.EntryFile}': {ex.Message}");
+            return 2;
+        }
         info($"info: wrote {context.EntryFile}");
         return 0;
     }
