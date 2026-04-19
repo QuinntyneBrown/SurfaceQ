@@ -28,17 +28,29 @@ internal static class GenerateCommand
 
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(context.ManifestPath))!;
         var sources = new SourceFileWalker().Walk(context).ToList();
-        var files = DiscoverAllExports(sources, manifestDir, warn);
+        var (files, errors) = DiscoverAllExports(sources, manifestDir, warn);
+        if (errors.Count > 0)
+        {
+            foreach (var msg in errors)
+            {
+                error(msg);
+            }
+            return 2;
+        }
         var output = new PublicApiRenderer().Render(files, context);
         File.WriteAllText(context.EntryFile, output);
         info($"info: wrote {context.EntryFile}");
         return 0;
     }
 
-    private static List<FileExports> DiscoverAllExports(List<string> sources, string manifestDir, Action<string> warn)
+    private static (List<FileExports> Files, List<string> Errors) DiscoverAllExports(
+        List<string> sources,
+        string manifestDir,
+        Action<string> warn)
     {
         var grouped = new Dictionary<string, Dictionary<string, bool>>(StringComparer.OrdinalIgnoreCase);
         var warnedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var errorMessages = new List<string>();
 
         using var sidecar = new SidecarClient(ResolveSidecarScript());
         var id = 0;
@@ -85,6 +97,15 @@ internal static class GenerateCommand
                 var rel = Path.GetRelativePath(manifestDir, normalized).Replace('\\', '/');
                 warn($"warn: {code} in '{rel}'");
             }
+
+            foreach (var e in result.GetProperty("errors").EnumerateArray())
+            {
+                var path = e.GetProperty("file").GetString()!;
+                var line = e.GetProperty("line").GetInt32();
+                var message = e.GetProperty("message").GetString()!;
+                var rel = Path.GetRelativePath(manifestDir, Path.GetFullPath(path)).Replace('\\', '/');
+                errorMessages.Add($"error: parse error in '{rel}' at line {line}: {message}");
+            }
         }
 
         var fileExportsList = new List<FileExports>();
@@ -98,7 +119,7 @@ internal static class GenerateCommand
             }
             fileExportsList.Add(new FileExports(kv.Key, valueNames, typeNames));
         }
-        return fileExportsList;
+        return (fileExportsList, errorMessages);
     }
 
     private static string ResolveSidecarScript()

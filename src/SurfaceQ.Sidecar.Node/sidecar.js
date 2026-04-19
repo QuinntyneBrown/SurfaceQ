@@ -37,11 +37,12 @@ function respond(id, result) {
 function discover(file) {
   const exports = [];
   const warnings = [];
-  collectFromFile(file, exports, warnings, new Set());
-  return { exports, warnings };
+  const errors = [];
+  collectFromFile(file, exports, warnings, errors, new Set());
+  return { exports, warnings, errors };
 }
 
-function collectFromFile(file, exports, warnings, visited) {
+function collectFromFile(file, exports, warnings, errors, visited) {
   if (visited.has(file)) {
     return;
   }
@@ -53,6 +54,19 @@ function collectFromFile(file, exports, warnings, visited) {
     return;
   }
   const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+  const parseDiagnostics = sourceFile.parseDiagnostics || [];
+  if (parseDiagnostics.length > 0) {
+    for (const d of parseDiagnostics) {
+      let line = 1;
+      if (d.file && typeof d.start === 'number') {
+        const lc = d.file.getLineAndCharacterOfPosition(d.start);
+        line = lc.line + 1;
+      }
+      const message = ts.flattenDiagnosticMessageText(d.messageText, '\n');
+      errors.push({ file, line, message });
+    }
+    return;
+  }
   const dir = path.dirname(file);
   ts.forEachChild(sourceFile, (node) => {
     if (ts.isExportAssignment(node) && !node.isExportEquals) {
@@ -65,7 +79,7 @@ function collectFromFile(file, exports, warnings, visited) {
         if (specifierText) {
           const resolved = resolveModule(dir, specifierText);
           if (resolved) {
-            collectFromFile(resolved, exports, warnings, visited);
+            collectFromFile(resolved, exports, warnings, errors, visited);
           }
         }
         return;
