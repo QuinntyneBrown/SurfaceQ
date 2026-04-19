@@ -38,6 +38,14 @@ function discover(file) {
   const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
   const exports = [];
   ts.forEachChild(sourceFile, (node) => {
+    if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
+      const declTypeOnly = node.isTypeOnly === true;
+      for (const el of node.exportClause.elements) {
+        const isType = declTypeOnly || el.isTypeOnly === true;
+        exports.push({ name: el.name.text, kind: 'reexport', isType });
+      }
+      return;
+    }
     if (!hasExportModifier(node)) {
       return;
     }

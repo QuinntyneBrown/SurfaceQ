@@ -50,7 +50,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 21 | [Sidecar: discover class export](./21-sidecar-class.md) | L2-008 | [x] |
 | 22 | [Sidecar: discover interface/type/enum](./22-sidecar-types.md) | L2-008 | [x] |
 | 23 | [Sidecar: discover const/function/InjectionToken](./23-sidecar-values.md) | L2-008 | [x] |
-| 24 | [Sidecar: handle `export { X } from` and `export type { X }`](./24-sidecar-reexports.md) | L2-008 | [ ] |
+| 24 | [Sidecar: handle `export { X } from` and `export type { X }`](./24-sidecar-reexports.md) | L2-008 | [x] |
 | 25 | [Sidecar: expand `export *`](./25-sidecar-wildcard.md) | L2-009 | [ ] |
 | 26 | [Sidecar: skip default export with warning](./26-sidecar-default-export.md) | L2-010 | [ ] |
 | 27 | [Sidecar: syntax error → exit 2](./27-sidecar-syntax-error.md) | L2-018 | [ ] |
