@@ -54,7 +54,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 25 | [Sidecar: expand `export *`](./25-sidecar-wildcard.md) | L2-009 | [x] |
 | 26 | [Sidecar: skip default export with warning](./26-sidecar-default-export.md) | L2-010 | [x] |
 | 27 | [Sidecar: syntax error → exit 2](./27-sidecar-syntax-error.md) | L2-018 | [x] |
-| 28 | [`generate` writes file](./28-generate-writes.md) | L2-001 | [ ] |
+| 28 | [`generate` writes file](./28-generate-writes.md) | L2-001 | [x] |
 | 29 | [`generate` overwrites existing file](./29-generate-overwrites.md) | L2-001 | [ ] |
 | 30 | [`generate` with `--project` (dir and file)](./30-generate-project-flag.md) | L2-001 | [ ] |
 | 31 | [`generate` read-only file → exit 2](./31-generate-readonly.md) | L2-019 | [ ] |
