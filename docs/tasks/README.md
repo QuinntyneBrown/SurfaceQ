@@ -45,7 +45,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 16 | [Renderer: type-only exports](./16-renderer-type-exports.md) | L2-011 | [x] |
 | 17 | [Renderer: POSIX specifiers + no `.ts` + relative](./17-renderer-module-specifiers.md) | L2-011 | [x] |
 | 18 | [Renderer: two-space indent + trailing newline](./18-renderer-formatting.md) | L2-011 | [x] |
-| 19 | [Empty scan root → header-only file](./19-empty-scan-root.md) | L2-006 | [ ] |
+| 19 | [Empty scan root → header-only file](./19-empty-scan-root.md) | L2-006 | [x] |
 | 20 | [Sidecar: spawn + JSON round-trip](./20-sidecar-roundtrip.md) | L2-013 | [ ] |
 | 21 | [Sidecar: discover class export](./21-sidecar-class.md) | L2-008 | [ ] |
 | 22 | [Sidecar: discover interface/type/enum](./22-sidecar-types.md) | L2-008 | [ ] |

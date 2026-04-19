@@ -13,15 +13,24 @@ internal static class GenerateCommand
             error($"error: could not find ng-package.json searching from '{startPath}'");
             return 2;
         }
+        ProjectContext context;
         try
         {
-            _ = new ManifestReader().Read(manifest, info);
+            context = new ManifestReader().Read(manifest, info);
         }
         catch (ManifestException ex)
         {
             error(ex.Message);
             return 2;
         }
+
+        var sources = new SourceFileWalker().Walk(context);
+        var files = sources
+            .Select(path => new FileExports(path, Array.Empty<string>(), Array.Empty<string>()))
+            .ToList();
+        var output = new PublicApiRenderer().Render(files, context);
+        File.WriteAllText(context.EntryFile, output);
+        info($"info: wrote {context.EntryFile}");
         return 0;
     }
 
