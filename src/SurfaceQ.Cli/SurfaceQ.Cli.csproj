@@ -35,4 +35,29 @@
     </Content>
   </ItemGroup>
 
+  <PropertyGroup>
+    <SidecarNodeDir>$(MSBuildThisFileDirectory)..\SurfaceQ.Sidecar.Node</SidecarNodeDir>
+  </PropertyGroup>
+
+  <Target Name="InstallSidecarNodeModules" BeforeTargets="GenerateNuspec;CollectPackageReferences">
+    <Exec Command="npm ci --omit=dev"
+          WorkingDirectory="$(SidecarNodeDir)"
+          Condition="!Exists('$(SidecarNodeDir)\node_modules\typescript\package.json')" />
+  </Target>
+
+  <ItemGroup>
+    <None Include="$(SidecarNodeDir)\sidecar.js">
+      <Pack>true</Pack>
+      <PackagePath>tools/net8.0/any/content/sidecar/</PackagePath>
+    </None>
+    <None Include="$(SidecarNodeDir)\package.json">
+      <Pack>true</Pack>
+      <PackagePath>tools/net8.0/any/content/sidecar/</PackagePath>
+    </None>
+    <None Include="$(SidecarNodeDir)\node_modules\typescript\**\*">
+      <Pack>true</Pack>
+      <PackagePath>tools/net8.0/any/content/sidecar/node_modules/typescript/%(RecursiveDir)</PackagePath>
+    </None>
+  </ItemGroup>
+
 </Project>
