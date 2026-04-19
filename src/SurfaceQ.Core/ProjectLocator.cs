@@ -6,10 +6,15 @@ public sealed class ProjectLocator
 
     public string? Locate(string startPath)
     {
-        var candidate = Path.Combine(startPath, ManifestName);
-        if (File.Exists(candidate))
+        var dir = new DirectoryInfo(startPath);
+        while (dir != null)
         {
-            return candidate;
+            var candidate = Path.Combine(dir.FullName, ManifestName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+            dir = dir.Parent;
         }
         return null;
     }
