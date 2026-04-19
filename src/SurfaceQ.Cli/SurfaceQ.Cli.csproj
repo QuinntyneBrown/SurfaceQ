@@ -29,4 +29,10 @@
     <ProjectReference Include="..\SurfaceQ.Sidecar\SurfaceQ.Sidecar.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="content\node\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

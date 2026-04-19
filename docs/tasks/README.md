@@ -72,7 +72,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 43 | [No network (inspection test)](./43-no-network.md) | L2-017 | [x] |
 | 44 | [Ignore stray config files](./44-ignore-config-files.md) | L2-022 | [x] |
 | 45 | [Package as .NET global tool](./45-pack-global-tool.md) | L2-014 | [x] |
-| 46 | [Bundle Node.js per RID](./46-bundle-node.md) | L2-014 | [ ] |
+| 46 | [Bundle Node.js per RID](./46-bundle-node.md) | L2-014 | [x] |
 | 47 | [Bundle `typescript` npm package](./47-bundle-typescript.md) | L2-014 | [ ] |
 | 48 | [Cross-platform determinism CI matrix](./48-cross-platform-ci.md) | L2-007, L2-012 | [ ] |
 | 49 | [Performance benchmark: 50-file cold run](./49-perf-cold.md) | L2-015 | [ ] |
