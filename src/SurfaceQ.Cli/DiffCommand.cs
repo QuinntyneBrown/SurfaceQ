@@ -34,6 +34,8 @@ internal static class DiffCommand
         {
             return 0;
         }
+        var diff = UnifiedDiff.Format(result.Output!, actual, entryFile);
+        info(diff.TrimEnd('\n'));
         return 1;
     }
 }
