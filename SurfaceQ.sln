@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{ECC6F5C4-C763-4050-BEDD-33FAC129D440}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SurfaceQ.Cli", "src\SurfaceQ.Cli\SurfaceQ.Cli.csproj", "{0BE0CEA0-BDC6-4BC7-8020-9F152037F1AE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{A0262FB0-66CA-4034-AD3E-E38EB09CB2CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SurfaceQ.Cli.Tests", "test\SurfaceQ.Cli.Tests\SurfaceQ.Cli.Tests.csproj", "{2D0E440B-BFF6-42D3-8904-E9A2A7632B0C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0BE0CEA0-BDC6-4BC7-8020-9F152037F1AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BE0CEA0-BDC6-4BC7-8020-9F152037F1AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BE0CEA0-BDC6-4BC7-8020-9F152037F1AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BE0CEA0-BDC6-4BC7-8020-9F152037F1AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D0E440B-BFF6-42D3-8904-E9A2A7632B0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D0E440B-BFF6-42D3-8904-E9A2A7632B0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D0E440B-BFF6-42D3-8904-E9A2A7632B0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D0E440B-BFF6-42D3-8904-E9A2A7632B0C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0BE0CEA0-BDC6-4BC7-8020-9F152037F1AE} = {ECC6F5C4-C763-4050-BEDD-33FAC129D440}
+		{2D0E440B-BFF6-42D3-8904-E9A2A7632B0C} = {A0262FB0-66CA-4034-AD3E-E38EB09CB2CD}
+	EndGlobalSection
+EndGlobal
