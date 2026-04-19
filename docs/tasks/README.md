@@ -58,7 +58,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 29 | [`generate` overwrites existing file](./29-generate-overwrites.md) | L2-001 | [x] |
 | 30 | [`generate` with `--project` (dir and file)](./30-generate-project-flag.md) | L2-001 | [x] |
 | 31 | [`generate` read-only file → exit 2](./31-generate-readonly.md) | L2-019 | [x] |
-| 32 | [`check` matches → exit 0](./32-check-match.md) | L2-002 | [ ] |
+| 32 | [`check` matches → exit 0](./32-check-match.md) | L2-002 | [x] |
 | 33 | [`check` drift → exit 1 with concise message](./33-check-drift.md) | L2-002 | [ ] |
 | 34 | [`check` error → exit 2](./34-check-error.md) | L2-002 | [ ] |
 | 35 | [`diff` equal → exit 0, no output](./35-diff-equal.md) | L2-003 | [ ] |
