@@ -60,7 +60,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 31 | [`generate` read-only file → exit 2](./31-generate-readonly.md) | L2-019 | [x] |
 | 32 | [`check` matches → exit 0](./32-check-match.md) | L2-002 | [x] |
 | 33 | [`check` drift → exit 1 with concise message](./33-check-drift.md) | L2-002 | [x] |
-| 34 | [`check` error → exit 2](./34-check-error.md) | L2-002 | [ ] |
+| 34 | [`check` error → exit 2](./34-check-error.md) | L2-002 | [x] |
 | 35 | [`diff` equal → exit 0, no output](./35-diff-equal.md) | L2-003 | [ ] |
 | 36 | [`diff` differs → exit 1, unified diff](./36-diff-unified.md) | L2-003 | [ ] |
 | 37 | [`diff` never writes to disk](./37-diff-no-writes.md) | L2-003 | [ ] |
