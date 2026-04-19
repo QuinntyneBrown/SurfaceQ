@@ -13,6 +13,15 @@ internal static class GenerateCommand
             error($"error: could not find ng-package.json searching from '{startPath}'");
             return 2;
         }
+        try
+        {
+            _ = new ManifestReader().Read(manifest, info);
+        }
+        catch (ManifestException ex)
+        {
+            error(ex.Message);
+            return 2;
+        }
         return 0;
     }
 

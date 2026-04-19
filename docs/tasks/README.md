@@ -34,7 +34,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 05 | [Missing manifest → exit 2](./05-missing-manifest-exit-2.md) | L2-004 | [x] |
 | 06 | [Parse `entryFile` field](./06-parse-entryfile.md) | L2-005 | [x] |
 | 07 | [Fallback to `src/public-api.ts`](./07-entryfile-fallback.md) | L2-005 | [x] |
-| 08 | [Malformed manifest → exit 2](./08-malformed-manifest.md) | L2-005 | [ ] |
+| 08 | [Malformed manifest → exit 2](./08-malformed-manifest.md) | L2-005 | [x] |
 | 09 | [Missing entryFile directory → exit 2](./09-missing-entryfile-dir.md) | L2-005 | [ ] |
 | 10 | [File walker: basic `.ts` discovery](./10-walker-basic.md) | L2-006 | [ ] |
 | 11 | [Walker: exclude `*.spec.ts`, `*.stories.ts`, `index.ts`](./11-walker-exclusions.md) | L2-006 | [ ] |

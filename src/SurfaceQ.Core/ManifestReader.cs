@@ -10,7 +10,16 @@ public sealed class ManifestReader
     {
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
         var json = File.ReadAllText(manifestPath);
-        using var doc = JsonDocument.Parse(json);
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            throw new ManifestException($"error: failed to parse '{manifestPath}': {ex.Message}", ex);
+        }
+        using var _ = doc;
 
         var entryRelative = TryReadEntryFile(doc);
         if (entryRelative == null)
