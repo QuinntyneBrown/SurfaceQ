@@ -32,7 +32,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 03 | [Project locator: current dir](./03-project-locator-current-dir.md) | L2-004 | [x] |
 | 04 | [Project locator: walk upward](./04-project-locator-walk-upward.md) | L2-004 | [x] |
 | 05 | [Missing manifest → exit 2](./05-missing-manifest-exit-2.md) | L2-004 | [x] |
-| 06 | [Parse `entryFile` field](./06-parse-entryfile.md) | L2-005 | [ ] |
+| 06 | [Parse `entryFile` field](./06-parse-entryfile.md) | L2-005 | [x] |
 | 07 | [Fallback to `src/public-api.ts`](./07-entryfile-fallback.md) | L2-005 | [ ] |
 | 08 | [Malformed manifest → exit 2](./08-malformed-manifest.md) | L2-005 | [ ] |
 | 09 | [Missing entryFile directory → exit 2](./09-missing-entryfile-dir.md) | L2-005 | [ ] |
