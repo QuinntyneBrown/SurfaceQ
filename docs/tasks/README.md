@@ -67,7 +67,7 @@ Each task below is a **vertical slice**: a tiny end-to-end behavior that can be 
 | 38 | [Logging: stderr vs stdout routing](./38-logging-streams.md) | L2-016 | [x] |
 | 39 | [`--verbosity quiet` and `diagnostic`](./39-verbosity-levels.md) | L2-016 | [x] |
 | 40 | [Plain-text logs (no ANSI)](./40-plain-text-logs.md) | L2-016 | [x] |
-| 41 | [Name collisions both emitted](./41-name-collisions.md) | L2-020 | [ ] |
+| 41 | [Name collisions both emitted](./41-name-collisions.md) | L2-020 | [x] |
 | 42 | [Determinism: repeat run byte-identical](./42-determinism-repeat.md) | L2-012 | [ ] |
 | 43 | [No network (inspection test)](./43-no-network.md) | L2-017 | [ ] |
 | 44 | [Ignore stray config files](./44-ignore-config-files.md) | L2-022 | [ ] |
