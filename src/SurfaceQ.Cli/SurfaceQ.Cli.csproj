@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <SidecarNodeDir>$(MSBuildThisFileDirectory)..\SurfaceQ.Sidecar.Node</SidecarNodeDir>
+    <SidecarNodeDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\SurfaceQ.Sidecar.Node'))</SidecarNodeDir>
   </PropertyGroup>
 
   <Target Name="InstallSidecarNodeModules" BeforeTargets="GenerateNuspec;CollectPackageReferences">
@@ -56,7 +56,7 @@
     </None>
     <None Include="$(SidecarNodeDir)\node_modules\typescript\**\*">
       <Pack>true</Pack>
-      <PackagePath>tools/net8.0/any/content/sidecar/node_modules/typescript/%(RecursiveDir)</PackagePath>
+      <PackagePath>tools/net8.0/any/content/sidecar/node_modules/typescript/</PackagePath>
     </None>
   </ItemGroup>
 

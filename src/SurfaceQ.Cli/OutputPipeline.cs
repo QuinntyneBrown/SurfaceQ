@@ -144,6 +144,12 @@ internal static class OutputPipeline
 
     private static string ResolveSidecarScript()
     {
+        var packaged = Path.Combine(AppContext.BaseDirectory, "content", "sidecar", "sidecar.js");
+        if (File.Exists(packaged))
+        {
+            return packaged;
+        }
+
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null)
         {
