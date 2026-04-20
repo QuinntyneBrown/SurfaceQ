@@ -1,0 +1,40 @@
+name: Publish to NuGet
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sidecar node_modules
+        shell: bash
+        working-directory: src/SurfaceQ.Sidecar.Node
+        run: npm ci
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Pack
+        run: dotnet pack -c Release src/SurfaceQ.Cli/SurfaceQ.Cli.csproj
+
+      - name: Publish to NuGet
+        run: dotnet nuget push src/SurfaceQ.Cli/bin/Release/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
