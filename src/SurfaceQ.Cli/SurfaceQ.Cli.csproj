@@ -7,13 +7,17 @@
     <Nullable>enable</Nullable>
     <RootNamespace>SurfaceQ.Cli</RootNamespace>
     <AssemblyName>surfaceq</AssemblyName>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>surfaceq</ToolCommandName>
     <PackageId>SurfaceQ</PackageId>
     <Description>SurfaceQ — Explicit Public API Generator for Angular Libraries.</Description>
+    <Authors>Quinntyne Brown</Authors>
+    <PackageProjectUrl>https://github.com/QuinntyneBrown/SurfaceQ</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/QuinntyneBrown/SurfaceQ</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,7 +40,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <SidecarNodeDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\SurfaceQ.Sidecar.Node'))</SidecarNodeDir>
+    <SidecarNodeDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..\SurfaceQ.Sidecar.Node'))</SidecarNodeDir>
   </PropertyGroup>
 
   <Target Name="InstallSidecarNodeModules" BeforeTargets="GenerateNuspec;CollectPackageReferences">
