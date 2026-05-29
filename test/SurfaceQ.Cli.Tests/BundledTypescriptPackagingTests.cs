@@ -9,6 +9,7 @@ using Xunit;
 
 namespace SurfaceQ.Cli.Tests;
 
+[Collection("Packaging")]
 public class BundledTypescriptPackagingTests
 {
     [Fact]

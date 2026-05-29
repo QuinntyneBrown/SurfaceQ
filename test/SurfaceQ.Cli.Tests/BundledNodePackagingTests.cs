@@ -8,6 +8,7 @@ using Xunit;
 
 namespace SurfaceQ.Cli.Tests;
 
+[Collection("Packaging")]
 public class BundledNodePackagingTests
 {
     private static readonly string[] RequiredRids =
