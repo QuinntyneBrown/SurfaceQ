@@ -274,7 +274,7 @@ function describeMember(member, sourceFile) {
     return {
       memberKind: 'property',
       name: memberName(member, sourceFile),
-      type: member.type ? collapse(member.type.getText(sourceFile)) : '',
+      type: propertyType(member, sourceFile),
       optional: !!member.questionToken,
       readonly,
       doc: getDoc(member, sourceFile),
@@ -300,13 +300,29 @@ function describeMember(member, sourceFile) {
     return {
       memberKind: 'property',
       name: memberName(member, sourceFile),
-      type: member.type ? collapse(member.type.getText(sourceFile)) : '',
+      type: propertyType(member, sourceFile),
       optional: false,
       readonly: ts.isGetAccessorDeclaration(member),
       doc: getDoc(member, sourceFile),
     };
   }
   return null;
+}
+
+// Class properties often have no explicit type annotation, carrying the value
+// type in the initializer's type argument instead — e.g. Angular's
+// `input<T>()`, `output<T>()`, `signal<T>()`, `model<T>()`, `input.required<T>()`.
+// Fall back to that type argument. computed(() => …) has no type argument and
+// stays blank rather than dumping the arrow body.
+function propertyType(member, sourceFile) {
+  if (member.type) {
+    return collapse(member.type.getText(sourceFile));
+  }
+  const init = member.initializer;
+  if (init && ts.isCallExpression(init) && init.typeArguments && init.typeArguments.length > 0) {
+    return collapse(init.typeArguments[0].getText(sourceFile));
+  }
+  return '';
 }
 
 function describeParameter(param, sourceFile) {

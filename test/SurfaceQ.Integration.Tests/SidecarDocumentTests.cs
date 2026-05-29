@@ -81,6 +81,46 @@ public class SidecarDocumentTests
     }
 
     [Fact]
+    public void Document_infers_property_type_from_initializer_type_argument()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "widget.ts");
+            // Angular signal pattern: the value type lives in the call's type
+            // argument, not an explicit annotation. computed() has no type
+            // argument and must stay blank rather than dumping the arrow body.
+            File.WriteAllText(
+                file,
+                "export class Widget {\n" +
+                "  variant = input<ButtonVariant>('primary');\n" +
+                "  item = input.required<Item>();\n" +
+                "  clicked = output<Event>();\n" +
+                "  value = signal<string | null>(null);\n" +
+                "  label = computed(() => this.variant());\n" +
+                "}\n");
+
+            var result = SendDocument(file);
+            var members = result.GetProperty("declarations").EnumerateArray().Single()
+                .GetProperty("members").EnumerateArray().ToList();
+            string TypeOf(string name) => members
+                .Single(m => m.GetProperty("name").GetString() == name)
+                .GetProperty("type").GetString()!;
+
+            Assert.Equal("ButtonVariant", TypeOf("variant"));
+            Assert.Equal("Item", TypeOf("item"));
+            Assert.Equal("Event", TypeOf("clicked"));
+            Assert.Equal("string | null", TypeOf("value"));
+            Assert.Equal("", TypeOf("label"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Document_reports_parse_errors()
     {
         var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
