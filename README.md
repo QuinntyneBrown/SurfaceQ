@@ -48,11 +48,32 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 | `generate` | Produce `public-api.ts` and write it to disk. | yes | `0` ok · `2` error |
 | `check` | Verify the on-disk `public-api.ts` matches what would be generated. Use in CI to block drift. | no | `0` match · `1` drift · `2` error |
 | `diff` | Print a unified diff between expected and actual output. | no | `0` match · `1` differ · `2` error |
+| `docs` | Document every library's public API in a workspace as Markdown. | yes | `0` ok · `2` error |
 
 ### Options
 
-- `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory.
+- `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs`, this is the **workspace root** to search for libraries.
 - `--verbosity <level>` — `quiet`, `minimal`, `normal` (default), `detailed`, `diagnostic`. `diagnostic` emits trace lines for the walker and sidecar.
+- `--output <path>` *(docs only)* — Markdown file path, relative to each library directory. Defaults to `API.md`.
+
+## Documenting a workspace
+
+`surfaceq docs` walks a workspace, finds every library (`ng-package.json`, skipping `node_modules` and `dist`), and writes a Markdown reference next to each one:
+
+```sh
+surfaceq docs --project ./my-workspace
+# writes libs/auth/API.md, libs/data/API.md, …
+```
+
+Each document is titled from the library's `package.json` `name` (falling back to the directory name) and contains tables for:
+
+- **Interfaces** — each property (type, optional, readonly) and method (parameters and return type).
+- **Injection Tokens** — the token and the **contract type** `T` from `new InjectionToken<T>(…)`, so consumers depend on the interface rather than an implementation.
+- **Enums** — members and their (declared or computed) values.
+- **Type Aliases** — the aliased definition.
+- **Classes** and **Functions** — public members and signatures.
+
+JSDoc summaries become the Description column. Output is deterministic (declarations sorted by name) and table-safe (pipes in union types are escaped). Use `--output docs/api.md` to change the per-library destination.
 
 ## Manifest
 
@@ -117,7 +138,7 @@ Use `diff` locally when you want to see what changed.
    public-api.ts
 ```
 
-The .NET host walks the file system, invokes a single long-lived Node process via line-delimited JSON-RPC (`ping` / `discover` methods), and renders the result. The sidecar owns the TypeScript compiler API; the host owns file I/O, grouping, and ordering. This split keeps the CLI testable without spinning up Node and keeps the TypeScript dependency out of .NET.
+The .NET host walks the file system, invokes a single long-lived Node process via line-delimited JSON-RPC (`ping` / `discover` / `document` methods), and renders the result. The sidecar owns the TypeScript compiler API; the host owns file I/O, grouping, and ordering. This split keeps the CLI testable without spinning up Node and keeps the TypeScript dependency out of .NET.
 
 ## Build from source
 

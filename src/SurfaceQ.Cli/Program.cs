@@ -17,6 +17,7 @@ public static class Program
         root.AddCommand(BuildGenerateCommand());
         root.AddCommand(BuildCheckCommand());
         root.AddCommand(BuildDiffCommand());
+        root.AddCommand(BuildDocsCommand());
         return root;
     }
 
@@ -69,6 +70,35 @@ public static class Program
             ctx.ExitCode = DiffCommand.Run(project, writers.Info, writers.Warn, writers.Error);
         });
         return command;
+    }
+
+    private static Command BuildDocsCommand()
+    {
+        var projectOption = ProjectOption();
+        var verbosityOption = VerbosityOption();
+        var outputOption = OutputOption();
+        var command = new Command("docs", "Document each library's public API as Markdown.");
+        command.AddOption(projectOption);
+        command.AddOption(verbosityOption);
+        command.AddOption(outputOption);
+        command.SetHandler((InvocationContext ctx) =>
+        {
+            var project = ctx.ParseResult.GetValueForOption(projectOption);
+            var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
+            var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "API.md";
+            var writers = Writers.For(ctx.Console, verbosity);
+            ctx.ExitCode = DocsCommand.Run(project, output, writers.Info, writers.Trace, writers.Warn, writers.Error);
+        });
+        return command;
+    }
+
+    private static Option<string?> OutputOption()
+    {
+        var option = new Option<string?>(
+            "--output",
+            "Markdown file path, relative to each library directory.");
+        option.SetDefaultValue("API.md");
+        return option;
     }
 
     private static Option<string?> ProjectOption() =>
