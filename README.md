@@ -55,6 +55,7 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 - `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs`, this is the **workspace root** to search for libraries.
 - `--verbosity <level>` — `quiet`, `minimal`, `normal` (default), `detailed`, `diagnostic`. `diagnostic` emits trace lines for the walker and sidecar.
 - `--output <path>` *(docs only)* — Markdown file path, relative to each library directory. Defaults to `API.md`.
+- `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
 
 ## Documenting a workspace
 
@@ -74,6 +75,17 @@ Each document is titled from the library's `package.json` `name` (falling back t
 - **Classes** and **Functions** — public members and signatures.
 
 JSDoc summaries become the Description column. Output is deterministic (declarations sorted by name) and table-safe (pipes in union types are escaped). Use `--output docs/api.md` to change the per-library destination.
+
+### Hiding implementations
+
+The document is meant to show the **contract** a consumer codes against — exported interfaces and injection tokens — not the concrete classes behind them. So by default, a class that **implements an interface exported by the same library** is omitted: consumers should inject its token and depend on the interface, not the class.
+
+```sh
+surfaceq docs --project ./my-workspace               # BillsService (implements IBillsService) is hidden
+surfaceq docs --project ./my-workspace --include-implementations   # show it anyway
+```
+
+Classes that implement only an external interface (e.g. Angular's `ControlValueAccessor`) or no interface at all are used directly and remain in the document. Hidden classes are reported on stdout so the omission is never silent.
 
 ## Manifest
 

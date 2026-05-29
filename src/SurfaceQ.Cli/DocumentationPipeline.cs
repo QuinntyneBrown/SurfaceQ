@@ -12,6 +12,7 @@ internal static class DocumentationPipeline
 {
     public static (LibraryApi? Library, int ExitCode) Build(
         string manifestPath,
+        bool includeImplementations,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -68,7 +69,81 @@ internal static class DocumentationPipeline
             }
             return (null, 2);
         }
-        return (new LibraryApi(LibraryName(manifestPath), declarations), 0);
+        var documented = includeImplementations
+            ? declarations
+            : ExcludeImplementations(declarations, info);
+        return (new LibraryApi(LibraryName(manifestPath), documented), 0);
+    }
+
+    // By default the document represents the contract a consumer codes against:
+    // exported interfaces + injection tokens. A class that implements an
+    // interface exported by the same library is an implementation detail reached
+    // via its token, so it is hidden unless --include-implementations is passed.
+    // Classes that implement only external interfaces (e.g. ControlValueAccessor)
+    // or no interface are used directly and stay visible.
+    private static List<ApiDeclaration> ExcludeImplementations(
+        List<ApiDeclaration> declarations,
+        Action<string> info)
+    {
+        var exportedInterfaces = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var d in declarations)
+        {
+            if (d.Kind == "interface")
+            {
+                exportedInterfaces.Add(d.Name);
+            }
+        }
+
+        var kept = new List<ApiDeclaration>();
+        var hidden = new List<string>();
+        foreach (var d in declarations)
+        {
+            if (d.Kind == "class" && ImplementsExportedInterface(d, exportedInterfaces))
+            {
+                hidden.Add(d.Name);
+            }
+            else
+            {
+                kept.Add(d);
+            }
+        }
+
+        if (hidden.Count > 0)
+        {
+            hidden.Sort(StringComparer.Ordinal);
+            info($"info: hid {hidden.Count} implementation class(es) behind exported interfaces " +
+                 $"({string.Join(", ", hidden)}); pass --include-implementations to show them");
+        }
+        return kept;
+    }
+
+    private static bool ImplementsExportedInterface(ApiDeclaration cls, HashSet<string> exportedInterfaces)
+    {
+        foreach (var implemented in cls.Implements)
+        {
+            if (exportedInterfaces.Contains(BaseTypeName(implemented)))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // "ns.IFoo<Bar>" -> "IFoo": drop type arguments, then any namespace qualifier.
+    private static string BaseTypeName(string heritage)
+    {
+        var name = heritage;
+        var generic = name.IndexOf('<');
+        if (generic >= 0)
+        {
+            name = name.Substring(0, generic);
+        }
+        var dot = name.LastIndexOf('.');
+        if (dot >= 0)
+        {
+            name = name.Substring(dot + 1);
+        }
+        return name.Trim();
     }
 
     private static void CollectWarnings(

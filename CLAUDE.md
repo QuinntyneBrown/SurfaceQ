@@ -10,7 +10,7 @@ Commands, with meaningful exit codes that CI relies on:
 - `generate` — write `public-api.ts` (exit `0` ok, `2` error)
 - `check` — verify on-disk matches expected, no write (exit `0` match, `1` drift, `2` error)
 - `diff` — print unified diff, no write (exit `0` match, `1` differ, `2` error)
-- `docs` — document every library in a workspace as Markdown, one `API.md` per library (exit `0` ok, `2` error). `--project` is the workspace root; `--output <path>` (default `API.md`) is relative to each library directory.
+- `docs` — document every library in a workspace as Markdown, one `API.md` per library (exit `0` ok, `2` error). `--project` is the workspace root; `--output <path>` (default `API.md`) is relative to each library directory. By default it hides classes that implement an interface exported by the same library (implementation details reached via injection token); `--include-implementations` shows them. Filtering lives in `DocumentationPipeline.ExcludeImplementations`.
 
 ## Build & test
 

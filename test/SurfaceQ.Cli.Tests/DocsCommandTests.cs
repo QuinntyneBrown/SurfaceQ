@@ -74,6 +74,64 @@ public class DocsCommandTests
     }
 
     [Fact]
+    public async Task Docs_hides_classes_implementing_an_exported_interface_by_default()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "import { InjectionToken } from '@angular/core';\n" +
+                "export interface IThing { run(): void; }\n" +
+                "export const THING = new InjectionToken<IThing>('THING');\n" +
+                "export class Thing implements IThing { run(): void {} }\n" +
+                "export class Widget { go(): void {} }\n" +
+                "export class Adapter implements ExternalContract { go(): void {} }\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
+            // The contract and token stay; the implementation behind the token is hidden.
+            Assert.Contains("### `IThing`", doc);
+            Assert.Contains("| `THING` | `IThing` |", doc);
+            Assert.DoesNotContain("### `Thing`", doc);
+            // Classes that do not implement an exported interface remain visible.
+            Assert.Contains("### `Widget`", doc);
+            Assert.Contains("### `Adapter`", doc); // implements a non-exported (external) interface
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Docs_includes_implementation_classes_when_flag_passed()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "export interface IThing { run(): void; }\n" +
+                "export class Thing implements IThing { run(): void {} }\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws, "--include-implementations" }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
+            Assert.Contains("### `IThing`", doc);
+            Assert.Contains("### `Thing`", doc);
+            Assert.Contains("_Implements: `IThing`_", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Docs_exits_2_when_no_libraries_found()
     {
         var ws = NewWorkspace();

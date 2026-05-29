@@ -12,6 +12,7 @@ internal static class DocsCommand
     public static int Run(
         string? project,
         string output,
+        bool includeImplementations,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -33,7 +34,8 @@ internal static class DocsCommand
         var failed = false;
         foreach (var manifest in manifests)
         {
-            var (library, exit) = DocumentationPipeline.Build(manifest, info, trace, warn, error);
+            var (library, exit) = DocumentationPipeline.Build(
+                manifest, includeImplementations, info, trace, warn, error);
             if (exit != 0 || library == null)
             {
                 failed = true;

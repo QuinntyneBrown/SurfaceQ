@@ -77,17 +77,22 @@ public static class Program
         var projectOption = ProjectOption();
         var verbosityOption = VerbosityOption();
         var outputOption = OutputOption();
+        var includeImplementationsOption = IncludeImplementationsOption();
         var command = new Command("docs", "Document each library's public API as Markdown.");
         command.AddOption(projectOption);
         command.AddOption(verbosityOption);
         command.AddOption(outputOption);
+        command.AddOption(includeImplementationsOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "API.md";
+            var includeImplementations = ctx.ParseResult.GetValueForOption(includeImplementationsOption);
             var writers = Writers.For(ctx.Console, verbosity);
-            ctx.ExitCode = DocsCommand.Run(project, output, writers.Info, writers.Trace, writers.Warn, writers.Error);
+            ctx.ExitCode = DocsCommand.Run(
+                project, output, includeImplementations,
+                writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
@@ -100,6 +105,11 @@ public static class Program
         option.SetDefaultValue("API.md");
         return option;
     }
+
+    private static Option<bool> IncludeImplementationsOption() =>
+        new(
+            "--include-implementations",
+            "Include classes that implement an exported interface (hidden by default).");
 
     private static Option<string?> ProjectOption() =>
         new("--project", "Path to the project directory or ng-package.json file.");
