@@ -276,7 +276,9 @@ function tryInjectionToken(decl, statement, sourceFile, file) {
     : 'unknown';
   let description = '';
   if (init.arguments && init.arguments.length > 0 && ts.isStringLiteral(init.arguments[0])) {
-    description = init.arguments[0].text;
+    // collapse() like every other text field, so a multi-line string-literal
+    // description never carries a raw newline into a Markdown table row.
+    description = collapse(init.arguments[0].text);
   }
   const meta = jsdoc(statement, sourceFile);
   return {

@@ -123,6 +123,42 @@ public class InventoryCommandTests
         }
     }
 
+    // Defends L2-034 (LF endings) and L2-012 (byte-identical across hosts): the
+    // output file is UTF-8 without a BOM, LF-only, and a non-ASCII source comment
+    // survives as its real bytes rather than the OEM-code-page mojibake.
+    [Fact]
+    public async Task Inventory_output_is_utf8_no_bom_lf_only_and_preserves_non_ascii()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var libDir = Path.Combine(ws, "libs", "widgets");
+            var srcDir = Path.Combine(libDir, "src");
+            Directory.CreateDirectory(srcDir);
+            File.WriteAllText(Path.Combine(libDir, "ng-package.json"), "{ \"entryFile\": \"src/public-api.ts\" }");
+            File.WriteAllText(Path.Combine(libDir, "package.json"), "{ \"name\": \"@acme/widgets\" }");
+            File.WriteAllText(Path.Combine(srcDir, "public-api.ts"), "export * from './widget';\n");
+            // → is RIGHTWARDS ARROW (UTF-8 E2 86 92); the same literal is used in
+            // the fixture and the assertion, so the round-trip check is exact.
+            File.WriteAllText(Path.Combine(srcDir, "widget.ts"),
+                "/** Maps input → output. */\nexport class Widget {}\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "inventory", "--project", ws }, new TestConsole());
+            Assert.Equal(0, exit);
+
+            var bytes = File.ReadAllBytes(Path.Combine(libDir, "INVENTORY.md"));
+            Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF,
+                "output must not start with a UTF-8 BOM");
+            Assert.DoesNotContain((byte)0x0D, bytes); // LF only, no CR
+            Assert.Contains("Maps input → output.", Encoding.UTF8.GetString(bytes));
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task Inventory_exits_2_when_no_projects_found()
     {

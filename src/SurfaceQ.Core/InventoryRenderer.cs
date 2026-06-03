@@ -126,12 +126,35 @@ public sealed class InventoryRenderer
         n == 1 ? $"1 {noun}" : $"{n} {noun}s";
 
     private static string Code(string value) =>
-        string.IsNullOrEmpty(value) ? "–" : "`" + EscapePipes(value) + "`";
+        string.IsNullOrEmpty(value) ? "–" : CodeSpan(EscapePipes(value));
 
     private static string Cell(string value) =>
         string.IsNullOrEmpty(value) ? "–" : EscapePipes(value);
 
     private static string EscapePipes(string value) => value.Replace("|", "\\|");
+
+    // Wraps text in a Markdown code span whose backtick fence is one longer than
+    // the longest backtick run inside, padding with a space when the text begins
+    // or ends with a backtick. A value such as a template-literal type
+    // (`a-${string}`) therefore cannot close the span early and spill the row.
+    private static string CodeSpan(string text)
+    {
+        var fence = new string('`', LongestBacktickRun(text) + 1);
+        var pad = text[0] == '`' || text[^1] == '`' ? " " : "";
+        return fence + pad + text + pad + fence;
+    }
+
+    private static int LongestBacktickRun(string text)
+    {
+        var longest = 0;
+        var current = 0;
+        foreach (var c in text)
+        {
+            current = c == '`' ? current + 1 : 0;
+            longest = current > longest ? current : longest;
+        }
+        return longest;
+    }
 
     private sealed record Section(string Title, IReadOnlyList<InventoryItem> Items);
 }

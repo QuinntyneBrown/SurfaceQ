@@ -1,9 +1,18 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace SurfaceQ.Sidecar;
 
 public sealed class SidecarClient : IDisposable
 {
+    // The sidecar reads source files as UTF-8 and writes UTF-8 JSON to stdout, so
+    // both stdio streams must be UTF-8. Without this, .NET falls back to the
+    // console's OEM code page on Windows (e.g. CP850), which mangles every
+    // non-ASCII character a source comment carries (an arrow "→" comes back as
+    // "ÔåÆ"). The encoding is BOM-less on purpose: a BOM on stdin would prefix
+    // the first request line and break the sidecar's JSON.parse.
+    private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
     private readonly Process _process;
     private readonly StreamWriter _stdin;
     private readonly StreamReader _stdout;
@@ -18,6 +27,8 @@ public sealed class SidecarClient : IDisposable
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
+            StandardInputEncoding = Utf8NoBom,
+            StandardOutputEncoding = Utf8NoBom,
         };
         psi.ArgumentList.Add(scriptPath);
         var process = Process.Start(psi)

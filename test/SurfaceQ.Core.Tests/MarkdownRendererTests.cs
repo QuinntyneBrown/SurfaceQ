@@ -128,6 +128,19 @@ public class MarkdownRendererTests
         Assert.Contains("_This library exposes no public API._", md);
     }
 
+    [Fact]
+    public void Code_span_fences_values_that_contain_backticks()
+    {
+        // A template-literal type carries backticks; a naive single-backtick span
+        // would close early and spill the rest of the row. The fence must widen
+        // and pad so the value stays a single intact code span.
+        var alias = Decl("Slug", "type") with { Definition = "`a-${string}`" };
+
+        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { alias }));
+
+        Assert.Contains("| `Slug` | `` `a-${string}` `` | no | – |", md);
+    }
+
     private static ApiDeclaration Decl(
         string name,
         string kind,
