@@ -25,7 +25,12 @@ public sealed class MarkdownRenderer
             return sb.ToString();
         }
 
-        AppendContents(sb, sections);
+        var deprecations = CollectDeprecations(library.Declarations);
+        AppendContents(sb, sections, deprecations.Count > 0);
+        if (deprecations.Count > 0)
+        {
+            AppendDeprecationsSummary(sb, deprecations);
+        }
         foreach (var section in sections)
         {
             section.Append(sb);
@@ -63,14 +68,63 @@ public sealed class MarkdownRenderer
         }
     }
 
-    private static void AppendContents(StringBuilder sb, List<Section> sections)
+    private static void AppendContents(StringBuilder sb, List<Section> sections, bool hasDeprecations)
     {
         sb.Append("## Contents\n\n");
+        if (hasDeprecations)
+        {
+            sb.Append("- [Deprecations](#deprecations)\n");
+        }
         foreach (var section in sections)
         {
             sb.Append("- [").Append(section.Title).Append("](#").Append(Anchor(section.Title)).Append(")\n");
         }
         sb.Append('\n');
+    }
+
+    private static void AppendDeprecationsSummary(StringBuilder sb, List<DeprecatedRef> deprecations)
+    {
+        sb.Append("## Deprecations\n\n");
+        sb.Append("| Item | Kind | Reason |\n");
+        sb.Append("| --- | --- | --- |\n");
+        foreach (var d in deprecations)
+        {
+            sb.Append("| ").Append(Code(d.Item))
+              .Append(" | ").Append(d.Kind)
+              .Append(" | ").Append(Cell(d.Reason))
+              .Append(" |\n");
+        }
+        sb.Append('\n');
+    }
+
+    // Flattens whole-declaration and member-level deprecations into one ordered
+    // list for the summary table. Declarations are name-ordered; within each,
+    // the declaration precedes its members (source order) for determinism.
+    private static List<DeprecatedRef> CollectDeprecations(IReadOnlyList<ApiDeclaration> declarations)
+    {
+        var refs = new List<DeprecatedRef>();
+        foreach (var d in declarations.OrderBy(x => x.Name, StringComparer.Ordinal))
+        {
+            if (d.Deprecated)
+            {
+                refs.Add(new DeprecatedRef(d.Name, d.Kind, d.DeprecationReason));
+            }
+            foreach (var m in d.Members)
+            {
+                if (m.Deprecated)
+                {
+                    refs.Add(new DeprecatedRef($"{d.Name}.{m.Name}", m.MemberKind, m.DeprecationReason));
+                }
+            }
+            foreach (var e in d.EnumMembers)
+            {
+                if (e.Deprecated)
+                {
+                    refs.Add(new DeprecatedRef($"{d.Name}.{e.Name}", "enum member", e.DeprecationReason));
+                }
+            }
+        }
+        return refs;
     }
 
     // --- Interfaces and classes -------------------------------------------
@@ -80,6 +134,7 @@ public sealed class MarkdownRenderer
         foreach (var d in declarations)
         {
             sb.Append("### `").Append(d.Name).Append("`\n\n");
+            AppendDeprecationCallout(sb, d.Deprecated, d.DeprecationReason);
             AppendDocLine(sb, d.Doc);
             AppendHeritage(sb, "Extends", d.Extends);
             AppendHeritage(sb, "Implements", d.Implements);
@@ -103,14 +158,15 @@ public sealed class MarkdownRenderer
             return;
         }
         sb.Append("**Properties**\n\n");
-        sb.Append("| Name | Type | Optional | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        sb.Append("| Name | Type | Optional | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- | --- |\n");
         foreach (var p in properties)
         {
             var name = p.Readonly ? "readonly " + p.Name : p.Name;
             sb.Append("| ").Append(Code(name))
               .Append(" | ").Append(Code(p.Type))
               .Append(" | ").Append(p.Optional ? "yes" : "no")
+              .Append(" | ").Append(DeprecatedCell(p.Deprecated, p.DeprecationReason))
               .Append(" | ").Append(Cell(p.Doc))
               .Append(" |\n");
         }
@@ -124,14 +180,15 @@ public sealed class MarkdownRenderer
             return;
         }
         sb.Append("**Methods**\n\n");
-        sb.Append("| Method | Parameters | Returns | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        sb.Append("| Method | Parameters | Returns | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- | --- |\n");
         foreach (var m in methods)
         {
             var name = m.Optional ? m.Name + "?" : m.Name;
             sb.Append("| ").Append(Code(name))
               .Append(" | ").Append(Code(FormatParameters(m.Parameters)))
               .Append(" | ").Append(Code(m.ReturnType))
+              .Append(" | ").Append(DeprecatedCell(m.Deprecated, m.DeprecationReason))
               .Append(" | ").Append(Cell(m.Doc))
               .Append(" |\n");
         }
@@ -143,13 +200,14 @@ public sealed class MarkdownRenderer
     private static void AppendTokensTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
     {
         sb.Append("Inject these tokens and depend on the contract type, not a concrete implementation.\n\n");
-        sb.Append("| Token | Contract | Description |\n");
-        sb.Append("| --- | --- | --- |\n");
+        sb.Append("| Token | Contract | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- |\n");
         foreach (var d in declarations)
         {
             var description = !string.IsNullOrEmpty(d.Doc) ? d.Doc : d.Description;
             sb.Append("| ").Append(Code(d.Name))
               .Append(" | ").Append(Code(d.Contract))
+              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
               .Append(" | ").Append(Cell(description))
               .Append(" |\n");
         }
@@ -161,13 +219,15 @@ public sealed class MarkdownRenderer
         foreach (var d in declarations)
         {
             sb.Append("### `").Append(d.Name).Append("`\n\n");
+            AppendDeprecationCallout(sb, d.Deprecated, d.DeprecationReason);
             AppendDocLine(sb, d.Doc);
-            sb.Append("| Member | Value | Description |\n");
-            sb.Append("| --- | --- | --- |\n");
+            sb.Append("| Member | Value | Deprecated | Description |\n");
+            sb.Append("| --- | --- | --- | --- |\n");
             foreach (var m in d.EnumMembers)
             {
                 sb.Append("| ").Append(Code(m.Name))
                   .Append(" | ").Append(Code(m.Value))
+                  .Append(" | ").Append(DeprecatedCell(m.Deprecated, m.DeprecationReason))
                   .Append(" | ").Append(Cell(m.Doc))
                   .Append(" |\n");
             }
@@ -177,12 +237,13 @@ public sealed class MarkdownRenderer
 
     private static void AppendTypeAliasTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
     {
-        sb.Append("| Name | Definition | Description |\n");
-        sb.Append("| --- | --- | --- |\n");
+        sb.Append("| Name | Definition | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- |\n");
         foreach (var d in declarations)
         {
             sb.Append("| ").Append(Code(d.Name))
               .Append(" | ").Append(Code(d.Definition))
+              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
               .Append(" | ").Append(Cell(d.Doc))
               .Append(" |\n");
         }
@@ -191,13 +252,14 @@ public sealed class MarkdownRenderer
 
     private static void AppendFunctionTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
     {
-        sb.Append("| Function | Parameters | Returns | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        sb.Append("| Function | Parameters | Returns | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- | --- |\n");
         foreach (var d in declarations)
         {
             sb.Append("| ").Append(Code(d.Name))
               .Append(" | ").Append(Code(FormatParameters(d.Parameters)))
               .Append(" | ").Append(Code(d.ReturnType))
+              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
               .Append(" | ").Append(Cell(d.Doc))
               .Append(" |\n");
         }
@@ -206,12 +268,13 @@ public sealed class MarkdownRenderer
 
     private static void AppendConstTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
     {
-        sb.Append("| Name | Type | Description |\n");
-        sb.Append("| --- | --- | --- |\n");
+        sb.Append("| Name | Type | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- |\n");
         foreach (var d in declarations)
         {
             sb.Append("| ").Append(Code(d.Name))
               .Append(" | ").Append(Code(d.Type))
+              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
               .Append(" | ").Append(Cell(d.Doc))
               .Append(" |\n");
         }
@@ -266,6 +329,29 @@ public sealed class MarkdownRenderer
         return EscapePipes(value);
     }
 
+    private static string DeprecatedCell(bool deprecated, string reason)
+    {
+        if (!deprecated)
+        {
+            return "no";
+        }
+        return string.IsNullOrEmpty(reason) ? "yes" : EscapePipes(reason);
+    }
+
+    private static void AppendDeprecationCallout(StringBuilder sb, bool deprecated, string reason)
+    {
+        if (!deprecated)
+        {
+            return;
+        }
+        sb.Append("> ⚠️ **Deprecated**");
+        if (!string.IsNullOrEmpty(reason))
+        {
+            sb.Append(" — ").Append(reason);
+        }
+        sb.Append("\n\n");
+    }
+
     private static string EscapePipes(string value) => value.Replace("|", "\\|");
 
     private static string Anchor(string title)
@@ -284,6 +370,8 @@ public sealed class MarkdownRenderer
         }
         return sb.ToString();
     }
+
+    private sealed record DeprecatedRef(string Item, string Kind, string Reason);
 
     private sealed record Section(
         string Title,

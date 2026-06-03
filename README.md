@@ -49,12 +49,13 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 | `check` | Verify the on-disk `public-api.ts` matches what would be generated. Use in CI to block drift. | no | `0` match · `1` drift · `2` error |
 | `diff` | Print a unified diff between expected and actual output. | no | `0` match · `1` differ · `2` error |
 | `docs` | Document every library's public API in a workspace as Markdown. | yes | `0` ok · `2` error |
+| `inventory` | Inventory every developer-authored object (apps + libraries) as Markdown. | yes | `0` ok · `2` error |
 
 ### Options
 
-- `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs`, this is the **workspace root** to search for libraries.
+- `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs` and `inventory`, this is the **workspace root** to search for projects.
 - `--verbosity <level>` — `quiet`, `minimal`, `normal` (default), `detailed`, `diagnostic`. `diagnostic` emits trace lines for the walker and sidecar.
-- `--output <path>` *(docs only)* — Markdown file path, relative to each library directory. Defaults to `API.md`.
+- `--output <path>` *(docs / inventory)* — Markdown file path, relative to each project directory. Defaults to `API.md` for `docs`, `INVENTORY.md` for `inventory`.
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
 
 ## Documenting a workspace
@@ -86,6 +87,67 @@ surfaceq docs --project ./my-workspace --include-implementations   # show it any
 ```
 
 Classes that implement only an external interface (e.g. Angular's `ControlValueAccessor`) or no interface at all are used directly and remain in the document. Hidden classes are reported on stdout so the omission is never silent.
+
+### Marking things deprecated
+
+Tag any declaration or member with the standard TypeScript `@deprecated` JSDoc tag — the same tag IDEs and the language service already understand. No config, no new syntax. The optional text after the tag becomes the reason.
+
+```ts
+/** @deprecated Use {@link Bill.partnerShare} instead; removed in v3. */
+export interface LegacyBill {
+  /** @deprecated since v2 — use `amount`. */
+  readonly total: number;
+}
+```
+
+In the generated `API.md`:
+
+- Every table gains a **`Deprecated`** column showing the reason (or `yes` when no reason is given, `no` otherwise).
+- A deprecated interface, class, or enum also gets a `> ⚠️ **Deprecated** — …` callout under its heading.
+- When anything is deprecated, a **`Deprecations`** summary table is listed at the top of the document as an at-a-glance index.
+
+## Inventorying a workspace
+
+`docs` describes the *public contract* of each library. `surfaceq inventory`
+answers a different question: **what code actually exists here?** It produces a
+complete census of every developer-authored object — exported *and* internal —
+across an Angular application, library, or whole workspace, and writes one
+`INVENTORY.md` next to each project.
+
+```sh
+surfaceq inventory --project ./my-workspace
+# writes apps/web/INVENTORY.md, libs/auth/INVENTORY.md, …
+```
+
+How it differs from `docs`:
+
+- **Apps too, not just libraries.** Projects are discovered from `angular.json`
+  (Angular CLI), `project.json` (Nx), and `ng-package.json` (libraries). Point
+  `--project` at a workspace, a single app, or a single library.
+- **Everything, not just the public API.** Every top-level declaration is
+  listed and flagged `Exported: yes/no` — internal helpers included.
+- **Angular-aware.** Each object is grouped by its role — **Component,
+  Directive, Pipe, Service, NgModule, Guard, Resolver, Interceptor** — detected
+  from decorators, implemented interfaces, and functional types
+  (`CanActivateFn`, `ResolveFn`, `HttpInterceptorFn`), with plain TypeScript
+  kinds (Class, Interface, Enum, Type Alias, Function, Constant, Injection
+  Token) for the rest.
+
+Each `INVENTORY.md` opens with a `Summary` (total / exported / internal counts
+and a per-category table), then one section per non-empty category:
+
+```md
+## Components
+
+| Name | Kind | Exported | File | Description |
+| --- | --- | --- | --- | --- |
+| `AppComponent` | `class` | yes | `src/app/app.component.ts` | The shell. |
+```
+
+Tests are excluded (`*.spec.ts`, `*.stories.ts`, `*.e2e-spec.ts`, `*.d.ts`, and
+`*-e2e` projects), as are `node_modules` and `dist`. Output is deterministic
+(sorted by name then file) and table-safe, just like `docs`. Use
+`--output reports/INVENTORY.md` to change the per-project destination.
 
 ## Manifest
 
@@ -150,7 +212,7 @@ Use `diff` locally when you want to see what changed.
    public-api.ts
 ```
 
-The .NET host walks the file system, invokes a single long-lived Node process via line-delimited JSON-RPC (`ping` / `discover` / `document` methods), and renders the result. The sidecar owns the TypeScript compiler API; the host owns file I/O, grouping, and ordering. This split keeps the CLI testable without spinning up Node and keeps the TypeScript dependency out of .NET.
+The .NET host walks the file system, invokes a single long-lived Node process via line-delimited JSON-RPC (`ping` / `discover` / `document` / `inventory` methods), and renders the result. The sidecar owns the TypeScript compiler API; the host owns file I/O, grouping, and ordering. This split keeps the CLI testable without spinning up Node and keeps the TypeScript dependency out of .NET.
 
 ## Build from source
 

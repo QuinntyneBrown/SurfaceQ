@@ -120,6 +120,138 @@ public class SidecarDocumentTests
         }
     }
 
+    // Acceptance Test
+    // Traces to: L2-030
+    // Description: A `@deprecated` JSDoc tag on a declaration sets deprecated:true
+    // and its trailing text as deprecationReason; absent ⇒ false/"".
+    [Fact]
+    public void Document_flags_deprecated_declarations_with_reason()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "contract.ts");
+            File.WriteAllText(
+                file,
+                "import { InjectionToken } from '@angular/core';\n" +
+                "/**\n" +
+                " * The amount owed.\n" +
+                " * @deprecated Use Bill.partnerShare instead; removed in v3.\n" +
+                " */\n" +
+                "export interface LegacyBill { total: number; }\n" +
+                "/** @deprecated */\n" +
+                "export type OldId = string;\n" +
+                "/** A current id. */\n" +
+                "export type Id = string;\n" +
+                "/** @deprecated since v2 */\n" +
+                "export enum OldRole { Guest }\n" +
+                "/** @deprecated old fn */\n" +
+                "export function legacy(): void {}\n" +
+                "/** @deprecated old const */\n" +
+                "export const LEGACY = 1;\n" +
+                "/** @deprecated old token */\n" +
+                "export const OLD_TOKEN = new InjectionToken<Id>('OLD');\n");
+
+            var result = SendDocument(file);
+            var declarations = result.GetProperty("declarations").EnumerateArray().ToList();
+
+            JsonElement Decl(string name) =>
+                declarations.Single(d => d.GetProperty("name").GetString() == name);
+            bool Deprecated(string name) => Decl(name).GetProperty("deprecated").GetBoolean();
+            string Reason(string name) => Decl(name).GetProperty("deprecationReason").GetString()!;
+
+            // Multi-line block: summary stays clean, reason is captured separately.
+            Assert.True(Deprecated("LegacyBill"));
+            Assert.Equal("Use Bill.partnerShare instead; removed in v3.", Reason("LegacyBill"));
+            Assert.Equal("The amount owed.", Decl("LegacyBill").GetProperty("doc").GetString());
+
+            // @deprecated with no reason.
+            Assert.True(Deprecated("OldId"));
+            Assert.Equal("", Reason("OldId"));
+
+            // Not deprecated.
+            Assert.False(Deprecated("Id"));
+            Assert.Equal("", Reason("Id"));
+
+            // Every declaration kind carries the flag.
+            Assert.True(Deprecated("OldRole"));
+            Assert.Equal("since v2", Reason("OldRole"));
+            Assert.True(Deprecated("legacy"));
+            Assert.Equal("old fn", Reason("legacy"));
+            Assert.True(Deprecated("LEGACY"));
+            Assert.Equal("old const", Reason("LEGACY"));
+            Assert.True(Deprecated("OLD_TOKEN"));
+            Assert.Equal("old token", Reason("OLD_TOKEN"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-030
+    // Description: A `@deprecated` tag on an interface member or enum member flags
+    // only that member, leaving its non-deprecated parent and siblings untouched.
+    [Fact]
+    public void Document_flags_deprecated_members()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "members.ts");
+            File.WriteAllText(
+                file,
+                "export interface Bill {\n" +
+                "  /** @deprecated since v2 - use amount. */\n" +
+                "  total: number;\n" +
+                "  amount: number;\n" +
+                "  /** @deprecated */\n" +
+                "  recalc(): void;\n" +
+                "}\n" +
+                "export enum Status {\n" +
+                "  /** @deprecated use Done */\n" +
+                "  Complete,\n" +
+                "  Done,\n" +
+                "}\n");
+
+            var result = SendDocument(file);
+            var declarations = result.GetProperty("declarations").EnumerateArray().ToList();
+
+            var bill = declarations.Single(d => d.GetProperty("name").GetString() == "Bill");
+            var members = bill.GetProperty("members").EnumerateArray().ToList();
+            JsonElement Member(string name) =>
+                members.Single(m => m.GetProperty("name").GetString() == name);
+
+            // Parent interface is not deprecated.
+            Assert.False(bill.GetProperty("deprecated").GetBoolean());
+
+            var total = Member("total");
+            Assert.True(total.GetProperty("deprecated").GetBoolean());
+            Assert.Equal("since v2 - use amount.", total.GetProperty("deprecationReason").GetString());
+
+            Assert.False(Member("amount").GetProperty("deprecated").GetBoolean());
+
+            var recalc = Member("recalc");
+            Assert.True(recalc.GetProperty("deprecated").GetBoolean());
+            Assert.Equal("", recalc.GetProperty("deprecationReason").GetString());
+
+            var status = declarations.Single(d => d.GetProperty("name").GetString() == "Status");
+            var enumMembers = status.GetProperty("members").EnumerateArray().ToList();
+            var complete = enumMembers.Single(m => m.GetProperty("name").GetString() == "Complete");
+            Assert.True(complete.GetProperty("deprecated").GetBoolean());
+            Assert.Equal("use Done", complete.GetProperty("deprecationReason").GetString());
+            var done = enumMembers.Single(m => m.GetProperty("name").GetString() == "Done");
+            Assert.False(done.GetProperty("deprecated").GetBoolean());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     [Fact]
     public void Document_reports_parse_errors()
     {
