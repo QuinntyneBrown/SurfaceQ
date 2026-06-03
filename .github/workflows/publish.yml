@@ -1,8 +1,8 @@
 name: Publish to NuGet
 
+# Publish once per release: only after CI succeeds on main. Triggering on
+# `push` as well would publish a second time and skip the CI test gate.
 on:
-  push:
-    branches: [main]
   workflow_run:
     workflows: [CI]
     types: [completed]
@@ -10,10 +10,13 @@ on:
 
 jobs:
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event.workflow_run.conclusion == 'success'
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Publish the exact commit CI validated, not whatever main is now.
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
