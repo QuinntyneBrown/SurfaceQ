@@ -27,10 +27,10 @@ public class MarkdownRendererTests
         Assert.Contains("# @acme/auth — Public API", md);
         Assert.Contains("## Interfaces", md);
         Assert.Contains("### `Principal`", md);
-        Assert.Contains("| `readonly id` | `string` | no | The id. |", md);
-        Assert.Contains("| `name` | `string` | yes | – |", md);
+        Assert.Contains("| `readonly id` | `string` | no | no | The id. |", md);
+        Assert.Contains("| `name` | `string` | yes | no | – |", md);
         // Pipe inside the parameter type is escaped so it does not break the cell.
-        Assert.Contains("| `hasRole` | `role: Role \\| string` | `boolean` | Checks a role. |", md);
+        Assert.Contains("| `hasRole` | `role: Role \\| string` | `boolean` | no | Checks a role. |", md);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class MarkdownRendererTests
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { token }));
 
         Assert.Contains("## Injection Tokens", md);
-        Assert.Contains("| `AUTH_SERVICE` | `AuthService` | the auth backend |", md);
+        Assert.Contains("| `AUTH_SERVICE` | `AuthService` | no | the auth backend |", md);
     }
 
     [Fact]
@@ -51,7 +51,11 @@ public class MarkdownRendererTests
         var role = Decl("Role", "enum");
         role = role with
         {
-            EnumMembers = new[] { new EnumMember("Guest", "0", ""), new EnumMember("Admin", "10", "") },
+            EnumMembers = new[]
+            {
+                new EnumMember("Guest", "0", "", false, ""),
+                new EnumMember("Admin", "10", "", false, ""),
+            },
         };
         var alias = Decl("AuthState", "type");
         alias = alias with { Definition = "string | Principal", Doc = "Auth state." };
@@ -59,8 +63,8 @@ public class MarkdownRendererTests
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { role, alias }));
 
         Assert.Contains("### `Role`", md);
-        Assert.Contains("| `Guest` | `0` | – |", md);
-        Assert.Contains("| `AuthState` | `string \\| Principal` | Auth state. |", md);
+        Assert.Contains("| `Guest` | `0` | no | – |", md);
+        Assert.Contains("| `AuthState` | `string \\| Principal` | no | Auth state. |", md);
     }
 
     [Fact]
@@ -78,6 +82,46 @@ public class MarkdownRendererTests
     }
 
     [Fact]
+    public void Renders_deprecated_column_and_callout_and_summary()
+    {
+        var alias = Decl("OldId", "type", deprecated: true, deprecationReason: "use Id")
+            with { Definition = "string" };
+        var iface = Decl("LegacyBill", "interface", doc: "Legacy.", members: new[]
+        {
+            Property("total", "number", optional: false, isReadonly: true, doc: "",
+                deprecated: true, deprecationReason: "use amount"),
+            Property("amount", "number", optional: false, isReadonly: false, doc: ""),
+        });
+        iface = iface with { Deprecated = true, DeprecationReason = "use Bill" };
+
+        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { alias, iface }));
+
+        // Summary section + contents entry.
+        Assert.Contains("- [Deprecations](#deprecations)", md);
+        Assert.Contains("## Deprecations", md);
+        Assert.Contains("| `LegacyBill` | interface | use Bill |", md);
+        Assert.Contains("| `LegacyBill.total` | property | use amount |", md);
+        Assert.Contains("| `OldId` | type | use Id |", md);
+        // Heading callout for the whole interface.
+        Assert.Contains("> ⚠️ **Deprecated** — use Bill", md);
+        // Column in the type-alias table and the member table.
+        Assert.Contains("| Name | Definition | Deprecated | Description |", md);
+        Assert.Contains("| `OldId` | `string` | use Id | – |", md);
+        Assert.Contains("| `readonly total` | `number` | no | use amount | – |", md);
+        Assert.Contains("| `amount` | `number` | no | no | – |", md);
+    }
+
+    [Fact]
+    public void Omits_deprecations_section_when_nothing_is_deprecated()
+    {
+        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { Decl("Id", "type") }));
+        Assert.DoesNotContain("## Deprecations", md);
+        Assert.DoesNotContain("Deprecations](#deprecations)", md);
+        // Column header is still present (always rendered), value is "no".
+        Assert.Contains("| Name | Definition | Deprecated | Description |", md);
+    }
+
+    [Fact]
     public void Empty_library_states_no_public_api()
     {
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", Array.Empty<ApiDeclaration>()));
@@ -88,7 +132,9 @@ public class MarkdownRendererTests
         string name,
         string kind,
         string doc = "",
-        IReadOnlyList<ApiMember>? members = null) =>
+        IReadOnlyList<ApiMember>? members = null,
+        bool deprecated = false,
+        string deprecationReason = "") =>
         new(
             Name: name,
             Kind: kind,
@@ -102,11 +148,16 @@ public class MarkdownRendererTests
             Implements: Array.Empty<string>(),
             Parameters: Array.Empty<ApiParameter>(),
             Members: members ?? Array.Empty<ApiMember>(),
-            EnumMembers: Array.Empty<EnumMember>());
+            EnumMembers: Array.Empty<EnumMember>(),
+            Deprecated: deprecated,
+            DeprecationReason: deprecationReason);
 
-    private static ApiMember Property(string name, string type, bool optional, bool isReadonly, string doc) =>
-        new("property", name, type, "", optional, isReadonly, Array.Empty<ApiParameter>(), doc);
+    private static ApiMember Property(
+        string name, string type, bool optional, bool isReadonly, string doc,
+        bool deprecated = false, string deprecationReason = "") =>
+        new("property", name, type, "", optional, isReadonly, Array.Empty<ApiParameter>(), doc,
+            deprecated, deprecationReason);
 
     private static ApiMember Method(string name, string returnType, string doc, params ApiParameter[] parameters) =>
-        new("method", name, "", returnType, false, false, parameters, doc);
+        new("method", name, "", returnType, false, false, parameters, doc, false, "");
 }

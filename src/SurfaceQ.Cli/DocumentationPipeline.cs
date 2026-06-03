@@ -191,7 +191,9 @@ internal static class DocumentationPipeline
             Implements: StrArray(d, "implements"),
             Parameters: ParseParameters(d),
             Members: ParseMembers(d),
-            EnumMembers: ParseEnumMembers(d));
+            EnumMembers: ParseEnumMembers(d),
+            Deprecated: Bool(d, "deprecated"),
+            DeprecationReason: Str(d, "deprecationReason"));
     }
 
     private static IReadOnlyList<ApiParameter> ParseParameters(JsonElement parent)
@@ -225,7 +227,9 @@ internal static class DocumentationPipeline
                 Optional: Bool(m, "optional"),
                 Readonly: Bool(m, "readonly"),
                 Parameters: ParseParameters(m),
-                Doc: Str(m, "doc")));
+                Doc: Str(m, "doc"),
+                Deprecated: Bool(m, "deprecated"),
+                DeprecationReason: Str(m, "deprecationReason")));
         }
         return list;
     }
@@ -239,7 +243,12 @@ internal static class DocumentationPipeline
         var list = new List<EnumMember>();
         foreach (var m in arr.EnumerateArray())
         {
-            list.Add(new EnumMember(Str(m, "name"), Str(m, "value"), Str(m, "doc")));
+            list.Add(new EnumMember(
+                Str(m, "name"),
+                Str(m, "value"),
+                Str(m, "doc"),
+                Bool(m, "deprecated"),
+                Str(m, "deprecationReason")));
         }
         return list;
     }

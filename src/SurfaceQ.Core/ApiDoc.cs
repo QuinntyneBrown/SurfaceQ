@@ -14,9 +14,16 @@ public sealed record ApiMember(
     bool Optional,
     bool Readonly,
     IReadOnlyList<ApiParameter> Parameters,
-    string Doc);
+    string Doc,
+    bool Deprecated,
+    string DeprecationReason);
 
-public sealed record EnumMember(string Name, string Value, string Doc);
+public sealed record EnumMember(
+    string Name,
+    string Value,
+    string Doc,
+    bool Deprecated,
+    string DeprecationReason);
 
 public sealed record ApiDeclaration(
     string Name,
@@ -31,6 +38,8 @@ public sealed record ApiDeclaration(
     IReadOnlyList<string> Implements,
     IReadOnlyList<ApiParameter> Parameters,
     IReadOnlyList<ApiMember> Members,
-    IReadOnlyList<EnumMember> EnumMembers);
+    IReadOnlyList<EnumMember> EnumMembers,
+    bool Deprecated,
+    string DeprecationReason);
 
 public sealed record LibraryApi(string Name, IReadOnlyList<ApiDeclaration> Declarations);

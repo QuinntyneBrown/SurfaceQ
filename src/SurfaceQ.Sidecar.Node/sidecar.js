@@ -32,6 +32,11 @@ rl.on('line', (line) => {
     respond(msg.id, document(file));
     return;
   }
+  if (msg.method === 'inventory') {
+    const file = msg.params && msg.params.file;
+    respond(msg.id, inventory(file));
+    return;
+  }
 });
 
 function respond(id, result) {
@@ -171,20 +176,26 @@ function document(file) {
 
 function describeDeclaration(node, sourceFile, file) {
   if (ts.isInterfaceDeclaration(node)) {
+    const meta = jsdoc(node, sourceFile);
     return {
       name: node.name.text,
       kind: 'interface',
-      doc: getDoc(node, sourceFile),
+      doc: meta.summary,
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
       extends: heritageNames(node, ts.SyntaxKind.ExtendsKeyword, sourceFile),
       members: node.members.map((m) => describeMember(m, sourceFile)).filter(Boolean),
       file,
     };
   }
   if (ts.isClassDeclaration(node) && node.name) {
+    const meta = jsdoc(node, sourceFile);
     return {
       name: node.name.text,
       kind: 'class',
-      doc: getDoc(node, sourceFile),
+      doc: meta.summary,
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
       implements: heritageNames(node, ts.SyntaxKind.ImplementsKeyword, sourceFile),
       extends: heritageNames(node, ts.SyntaxKind.ExtendsKeyword, sourceFile),
       members: node.members.map((m) => describeMember(m, sourceFile)).filter(Boolean),
@@ -192,28 +203,37 @@ function describeDeclaration(node, sourceFile, file) {
     };
   }
   if (ts.isTypeAliasDeclaration(node)) {
+    const meta = jsdoc(node, sourceFile);
     return {
       name: node.name.text,
       kind: 'type',
-      doc: getDoc(node, sourceFile),
+      doc: meta.summary,
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
       definition: collapse(node.type.getText(sourceFile)),
       file,
     };
   }
   if (ts.isEnumDeclaration(node)) {
+    const meta = jsdoc(node, sourceFile);
     return {
       name: node.name.text,
       kind: 'enum',
-      doc: getDoc(node, sourceFile),
+      doc: meta.summary,
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
       members: enumMembers(node, sourceFile),
       file,
     };
   }
   if (ts.isFunctionDeclaration(node) && node.name) {
+    const meta = jsdoc(node, sourceFile);
     return {
       name: node.name.text,
       kind: 'function',
-      doc: getDoc(node, sourceFile),
+      doc: meta.summary,
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
       parameters: node.parameters.map((p) => describeParameter(p, sourceFile)),
       returnType: node.type ? collapse(node.type.getText(sourceFile)) : '',
       file,
@@ -228,10 +248,13 @@ function describeDeclaration(node, sourceFile, file) {
       if (token) {
         return token;
       }
+      const meta = jsdoc(node, sourceFile);
       return {
         name: d.name.text,
         kind: 'const',
-        doc: getDoc(node, sourceFile),
+        doc: meta.summary,
+        deprecated: meta.deprecated,
+        deprecationReason: meta.deprecationReason,
         type: variableType(d, sourceFile),
         file,
       };
@@ -255,18 +278,263 @@ function tryInjectionToken(decl, statement, sourceFile, file) {
   if (init.arguments && init.arguments.length > 0 && ts.isStringLiteral(init.arguments[0])) {
     description = init.arguments[0].text;
   }
+  const meta = jsdoc(statement, sourceFile);
   return {
     name: decl.name.text,
     kind: 'injection-token',
-    doc: getDoc(statement, sourceFile),
+    doc: meta.summary,
+    deprecated: meta.deprecated,
+    deprecationReason: meta.deprecationReason,
     contract,
     description,
     file,
   };
 }
 
+// ---------------------------------------------------------------------------
+// inventory: a complete census of developer-authored declarations in a file,
+// for the `surfaceq inventory` command. Unlike document/discover, it reports
+// EVERY top-level declaration (exported or not) and classifies each by its
+// Angular role (Component, Service, Guard, …) on top of its TypeScript kind.
+// ---------------------------------------------------------------------------
+
+function inventory(file) {
+  const items = [];
+  const warnings = [];
+  const errors = [];
+  let content;
+  try {
+    content = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    return { items, warnings, errors };
+  }
+  const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+  const parseDiagnostics = sourceFile.parseDiagnostics || [];
+  if (parseDiagnostics.length > 0) {
+    for (const d of parseDiagnostics) {
+      let line = 1;
+      if (d.file && typeof d.start === 'number') {
+        line = d.file.getLineAndCharacterOfPosition(d.start).line + 1;
+      }
+      errors.push({ file, line, message: ts.flattenDiagnosticMessageText(d.messageText, '\n') });
+    }
+    return { items, warnings, errors };
+  }
+  ts.forEachChild(sourceFile, (node) => {
+    for (const item of inventoryNode(node, sourceFile, file)) {
+      items.push(item);
+    }
+  });
+  return { items, warnings, errors };
+}
+
+function inventoryNode(node, sourceFile, file) {
+  const exported = hasExportModifier(node);
+  if (ts.isClassDeclaration(node) && node.name) {
+    return [inventoryItem(node.name.text, 'class', classRole(node, sourceFile), exported, node, sourceFile, file)];
+  }
+  if (ts.isInterfaceDeclaration(node)) {
+    return [inventoryItem(node.name.text, 'interface', 'Interface', exported, node, sourceFile, file)];
+  }
+  if (ts.isEnumDeclaration(node)) {
+    return [inventoryItem(node.name.text, 'enum', 'Enum', exported, node, sourceFile, file)];
+  }
+  if (ts.isTypeAliasDeclaration(node)) {
+    return [inventoryItem(node.name.text, 'type', 'Type Alias', exported, node, sourceFile, file)];
+  }
+  if (ts.isFunctionDeclaration(node) && node.name) {
+    const role = functionalRole(node.type ? node.type.getText(sourceFile) : '') || 'Function';
+    return [inventoryItem(node.name.text, 'function', role, exported, node, sourceFile, file)];
+  }
+  if (ts.isVariableStatement(node)) {
+    return variableItems(node, exported, sourceFile, file);
+  }
+  return [];
+}
+
+function variableItems(statement, exported, sourceFile, file) {
+  const kind = variableKeyword(statement);
+  const out = [];
+  for (const decl of statement.declarationList.declarations) {
+    if (!ts.isIdentifier(decl.name)) {
+      continue;
+    }
+    // Role comes from the type annotation, or — for the inline `(...) as Fn`
+    // / `... satisfies Fn` form common in functional guards — the assertion type.
+    const typeText = decl.type ? decl.type.getText(sourceFile) : assertionType(decl, sourceFile);
+    const role = isInjectionToken(decl, sourceFile)
+      ? 'Injection Token'
+      : functionalRole(typeText) || 'Constant';
+    out.push(inventoryItem(decl.name.text, kind, role, exported, statement, sourceFile, file));
+  }
+  return out;
+}
+
+function variableKeyword(statement) {
+  const flags = statement.declarationList.flags;
+  if (flags & ts.NodeFlags.Const) {
+    return 'const';
+  }
+  if (flags & ts.NodeFlags.Let) {
+    return 'let';
+  }
+  return 'var';
+}
+
+function inventoryItem(name, kind, role, exported, jsdocNode, sourceFile, file) {
+  const meta = jsdoc(jsdocNode, sourceFile);
+  return {
+    name,
+    kind,
+    role,
+    exported,
+    doc: meta.summary,
+    deprecated: meta.deprecated,
+    deprecationReason: meta.deprecationReason,
+    file,
+  };
+}
+
+// Role precedence: structural decorators (Component/Directive/Pipe/NgModule)
+// first, then router/HTTP roles inferred from implemented interfaces, then a
+// plain @Injectable Service, else just a class. A guard/resolver/interceptor
+// interface therefore outranks @Injectable on the same class.
+function classRole(node, sourceFile) {
+  const decorated = decoratorRole(node);
+  if (decorated) {
+    return decorated;
+  }
+  const implemented = heritageRole(heritageNames(node, ts.SyntaxKind.ImplementsKeyword, sourceFile));
+  if (implemented) {
+    return implemented;
+  }
+  if (hasDecorator(node, 'Injectable')) {
+    return 'Service';
+  }
+  return 'Class';
+}
+
+function decoratorRole(node) {
+  if (hasDecorator(node, 'Component')) {
+    return 'Component';
+  }
+  if (hasDecorator(node, 'Directive')) {
+    return 'Directive';
+  }
+  if (hasDecorator(node, 'Pipe')) {
+    return 'Pipe';
+  }
+  if (hasDecorator(node, 'NgModule')) {
+    return 'NgModule';
+  }
+  return '';
+}
+
+function hasDecorator(node, name) {
+  for (const dec of getDecorators(node)) {
+    // baseTypeName strips a namespace qualifier so `@ng.Component` (namespace
+    // import) matches the same way `@Component` does — consistent with heritage.
+    if (baseTypeName(decoratorName(dec)) === name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The asserted type of an `(expr) as T` or `expr satisfies T` initializer, used
+// to recover the Angular role when a const has no explicit type annotation.
+function assertionType(decl, sourceFile) {
+  const init = decl.initializer;
+  if (init && (ts.isAsExpression(init) || ts.isSatisfiesExpression(init)) && init.type) {
+    return init.type.getText(sourceFile);
+  }
+  return '';
+}
+
+function getDecorators(node) {
+  if (typeof ts.canHaveDecorators === 'function' && typeof ts.getDecorators === 'function') {
+    return (ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined) || [];
+  }
+  return node.decorators || [];
+}
+
+function decoratorName(dec) {
+  let expr = dec.expression;
+  if (expr && ts.isCallExpression(expr)) {
+    expr = expr.expression;
+  }
+  if (expr && ts.isIdentifier(expr)) {
+    return expr.text;
+  }
+  return expr && expr.getText ? expr.getText() : '';
+}
+
+function heritageRole(names) {
+  for (const raw of names) {
+    const base = baseTypeName(raw);
+    if (GUARD_INTERFACES.has(base)) {
+      return 'Guard';
+    }
+    if (base === 'Resolve') {
+      return 'Resolver';
+    }
+    if (base === 'HttpInterceptor') {
+      return 'Interceptor';
+    }
+  }
+  return '';
+}
+
+function functionalRole(typeText) {
+  const base = baseTypeName(typeText);
+  if (GUARD_FNS.has(base)) {
+    return 'Guard';
+  }
+  if (base === 'ResolveFn') {
+    return 'Resolver';
+  }
+  if (base === 'HttpInterceptorFn') {
+    return 'Interceptor';
+  }
+  return '';
+}
+
+function isInjectionToken(decl, sourceFile) {
+  const init = decl.initializer;
+  if (!init || !ts.isNewExpression(init)) {
+    return false;
+  }
+  const expr = init.expression.getText(sourceFile);
+  return expr === 'InjectionToken' || expr.endsWith('.InjectionToken');
+}
+
+// "ng.CanActivateFn<Foo>" -> "CanActivateFn": drop type args, then namespace.
+function baseTypeName(text) {
+  if (!text) {
+    return '';
+  }
+  let name = text.trim();
+  const lt = name.indexOf('<');
+  if (lt >= 0) {
+    name = name.slice(0, lt);
+  }
+  const dot = name.lastIndexOf('.');
+  if (dot >= 0) {
+    name = name.slice(dot + 1);
+  }
+  return name.trim();
+}
+
+const GUARD_INTERFACES = new Set([
+  'CanActivate', 'CanActivateChild', 'CanDeactivate', 'CanMatch', 'CanLoad',
+]);
+const GUARD_FNS = new Set([
+  'CanActivateFn', 'CanActivateChildFn', 'CanDeactivateFn', 'CanMatchFn', 'CanLoadFn',
+]);
+
 function describeMember(member, sourceFile) {
   const readonly = hasModifierOfKind(member, ts.SyntaxKind.ReadonlyKeyword);
+  const meta = jsdoc(member, sourceFile);
   if (ts.isPropertySignature(member) || ts.isPropertyDeclaration(member)) {
     if (!isPublic(member) || !memberName(member, sourceFile)) {
       return null;
@@ -277,7 +545,9 @@ function describeMember(member, sourceFile) {
       type: propertyType(member, sourceFile),
       optional: !!member.questionToken,
       readonly,
-      doc: getDoc(member, sourceFile),
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
+      doc: meta.summary,
     };
   }
   if (ts.isMethodSignature(member) || ts.isMethodDeclaration(member)) {
@@ -290,7 +560,9 @@ function describeMember(member, sourceFile) {
       parameters: member.parameters.map((p) => describeParameter(p, sourceFile)),
       returnType: member.type ? collapse(member.type.getText(sourceFile)) : '',
       optional: !!member.questionToken,
-      doc: getDoc(member, sourceFile),
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
+      doc: meta.summary,
     };
   }
   if (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member)) {
@@ -303,7 +575,9 @@ function describeMember(member, sourceFile) {
       type: propertyType(member, sourceFile),
       optional: false,
       readonly: ts.isGetAccessorDeclaration(member),
-      doc: getDoc(member, sourceFile),
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
+      doc: meta.summary,
     };
   }
   return null;
@@ -352,7 +626,14 @@ function enumMembers(node, sourceFile) {
       value = String(auto);
       auto += 1;
     }
-    members.push({ name, value, doc: getDoc(m, sourceFile) });
+    const meta = jsdoc(m, sourceFile);
+    members.push({
+      name,
+      value,
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
+      doc: meta.summary,
+    });
   }
   return members;
 }
@@ -398,30 +679,54 @@ function isPublic(member) {
     && !hasModifierOfKind(member, ts.SyntaxKind.ProtectedKeyword);
 }
 
-function getDoc(node, sourceFile) {
+// Single pass over a node's leading /** */ block: returns the summary text,
+// whether it carries an @deprecated tag, and that tag's trailing reason.
+function jsdoc(node, sourceFile) {
   const ranges = ts.getLeadingCommentRanges(sourceFile.text, node.getFullStart()) || [];
   for (let i = ranges.length - 1; i >= 0; i--) {
     const text = sourceFile.text.slice(ranges[i].pos, ranges[i].end);
     if (text.startsWith('/**')) {
-      return cleanJsDoc(text);
+      return parseJsDocBlock(text);
     }
   }
-  return '';
+  return { summary: '', deprecated: false, deprecationReason: '' };
 }
 
-function cleanJsDoc(text) {
+function parseJsDocBlock(text) {
   const inner = text.replace(/^\/\*\*/, '').replace(/\*\/$/, '');
-  const lines = [];
+  const summaryLines = [];
+  const deprecationLines = [];
+  let deprecated = false;
+  let mode = 'summary';
   for (const raw of inner.split('\n')) {
     const line = raw.replace(/^\s*\*?/, '').trim();
-    if (line.startsWith('@')) {
-      break;
+    if (/^@deprecated(\s|$)/.test(line)) {
+      deprecated = true;
+      mode = 'deprecated';
+      const rest = line.slice('@deprecated'.length).trim();
+      if (rest) {
+        deprecationLines.push(rest);
+      }
+      continue;
     }
-    if (line) {
-      lines.push(line);
+    if (line.startsWith('@')) {
+      mode = 'tag';
+      continue;
+    }
+    if (!line) {
+      continue;
+    }
+    if (mode === 'summary') {
+      summaryLines.push(line);
+    } else if (mode === 'deprecated') {
+      deprecationLines.push(line);
     }
   }
-  return collapse(lines.join(' '));
+  return {
+    summary: collapse(summaryLines.join(' ')),
+    deprecated,
+    deprecationReason: collapse(deprecationLines.join(' ')),
+  };
 }
 
 function collapse(text) {

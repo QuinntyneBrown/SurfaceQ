@@ -36,14 +36,14 @@ public class DocsCommandTests
             var authDoc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
             Assert.Contains("# @acme/auth — Public API", authDoc);
             Assert.Contains("## Interfaces", authDoc);
-            Assert.Contains("| `login` | `user: string` | `boolean` | – |", authDoc);
+            Assert.Contains("| `login` | `user: string` | `boolean` | no | – |", authDoc);
             Assert.Contains("## Injection Tokens", authDoc);
             Assert.Contains("| `AUTH` | `AuthService` |", authDoc);
 
             var dataDoc = File.ReadAllText(Path.Combine(ws, "libs", "data", "API.md"), Encoding.UTF8);
             // No package.json name -> falls back to the directory name.
             Assert.Contains("# data — Public API", dataDoc);
-            Assert.Contains("| `Active` | `0` | – |", dataDoc);
+            Assert.Contains("| `Active` | `0` | no | – |", dataDoc);
         }
         finally
         {
@@ -132,6 +132,40 @@ public class DocsCommandTests
     }
 
     [Fact]
+    public async Task Docs_marks_deprecated_declarations_and_members()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "/** @deprecated use Id */\n" +
+                "export type OldId = string;\n" +
+                "export interface Token {\n" +
+                "  /** @deprecated use {@link Token.value} */\n" +
+                "  raw: string;\n" +
+                "  value: string;\n" +
+                "}\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
+            Assert.Contains("## Deprecations", doc);
+            Assert.Contains("| `OldId` | type | use Id |", doc);
+            Assert.Contains("| `Token.raw` | property | use {@link Token.value} |", doc);
+            // Deprecated column populated in the type-alias table and member table.
+            Assert.Contains("| `OldId` | `string` | use Id | – |", doc);
+            Assert.Contains("| `raw` | `string` | no | use {@link Token.value} | – |", doc);
+            Assert.Contains("| `value` | `string` | no | no | – |", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Docs_exits_2_when_no_libraries_found()
     {
         var ws = NewWorkspace();
@@ -158,7 +192,10 @@ public class DocsCommandTests
         try
         {
             CreateLibrary(ws, "auth", "@acme/auth",
-                "export interface A { b(): void; c: number; }\n" +
+                "/** @deprecated use B */\n" +
+                "export interface A { /** @deprecated */ b(): void; c: number; }\n" +
+                "/** @deprecated since v2 */\n" +
+                "export type Old = string;\n" +
                 "export enum E { X, Y }\n");
             var path = Path.Combine(ws, "libs", "auth", "API.md");
 

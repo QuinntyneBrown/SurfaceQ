@@ -1,6 +1,6 @@
 // Acceptance Test
 // Traces to: L2-021
-// Description: `surfaceq --help` and `-h` list generate/check/diff/docs and exit 0.
+// Description: `surfaceq --help` and `-h` list generate/check/diff/docs/inventory and exit 0.
 
 using System.CommandLine;
 using System.CommandLine.IO;
@@ -27,5 +27,6 @@ public class HelpTests
         Assert.Contains("check", output);
         Assert.Contains("diff", output);
         Assert.Contains("docs", output);
+        Assert.Contains("inventory", output);
     }
 }
