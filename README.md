@@ -50,6 +50,7 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 | `diff` | Print a unified diff between expected and actual output. | no | `0` match · `1` differ · `2` error |
 | `docs` | Document every library's public API in a workspace as Markdown. | yes | `0` ok · `2` error |
 | `inventory` | Inventory every developer-authored object (apps + libraries) as Markdown. | yes | `0` ok · `2` error |
+| `ficd-init` | Seed a starter `ficd/` metadata folder into each library (run before `ficd`). | yes | `0` ok · `2` error |
 | `ficd` | Generate a Functional Interface Control Document per library from authored `ficd/` metadata. | yes | `0` ok · `2` error |
 
 ### Options
@@ -161,13 +162,19 @@ and prose are authored by you* and whose *tables are filled from the code*.
 You drive it with a `ficd/` folder at the library root. The command merges that
 authored metadata with the extracted public API and writes a document set
 (default `docs/ficd/`, one rendered `*.md` per authored file plus a `README.md`
-index):
+index). The workflow is **seed → edit → generate**:
 
 ```sh
-surfaceq ficd --project ./my-workspace
-# libs/auth/ficd/…           ← you author this (see docs/specs/ficd-schema.md)
+surfaceq ficd-init --project ./my-workspace   # 1. seed a starter ficd/ in each library
+#                                               2. open the seeded files and fill the TODOs
+surfaceq ficd --project ./my-workspace        # 3. generate the document set
+# libs/auth/ficd/…           ← you author this (seeded by ficd-init; see docs/specs/ficd-schema.md)
 # libs/auth/docs/ficd/…      ← SurfaceQ generates this
 ```
+
+`ficd-init` writes a `ficd.yml` manifest plus placeholder section files with
+`TODO` markers, commented-out `groups:` examples, and `<!-- add services here -->`
+guidance. It never overwrites an existing file, so it is safe to re-run.
 
 A section file is YAML-style frontmatter plus a Markdown body. Frontmatter binds
 authored prose to symbol names the renderer resolves from the code:

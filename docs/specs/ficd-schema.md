@@ -21,8 +21,11 @@ output is byte-identical across runs and hosts, LF-terminated, UTF-8 without BOM
 ## 1. Where the metadata lives
 
 Author the metadata in a `ficd/` folder at the **library root** (next to
-`ng-package.json`). The generated document set is written to a separate output
-folder (default `docs/ficd/`). A library with no `ficd/` folder is skipped; the
+`ng-package.json`). Run **`surfaceq ficd-init`** to seed this folder with a
+`ficd.yml` manifest and placeholder section files (with `TODO` markers,
+commented-out `groups:` examples, and `<!-- add … here -->` guidance); fill in
+the placeholders, then run `surfaceq ficd`. The generated document set is written
+to a separate output folder (default `docs/ficd/`). A library with no `ficd/` folder is skipped; the
 command requires at least one library with a `ficd/` folder.
 
 > **Why not `FICD/`?** On a case-insensitive filesystem (Windows, default macOS)
