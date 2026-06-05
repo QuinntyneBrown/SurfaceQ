@@ -193,7 +193,8 @@ internal static class DocumentationPipeline
             Members: ParseMembers(d),
             EnumMembers: ParseEnumMembers(d),
             Deprecated: Bool(d, "deprecated"),
-            DeprecationReason: Str(d, "deprecationReason"));
+            DeprecationReason: Str(d, "deprecationReason"),
+            File: Str(d, "file"));
     }
 
     private static IReadOnlyList<ApiParameter> ParseParameters(JsonElement parent)

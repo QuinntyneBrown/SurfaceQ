@@ -21,7 +21,28 @@ public static class Program
         root.AddCommand(BuildInventoryCommand());
         root.AddCommand(BuildFicdInitCommand());
         root.AddCommand(BuildFicdCommand());
+        root.AddCommand(BuildProvidersCommand());
         return root;
+    }
+
+    private static Command BuildProvidersCommand()
+    {
+        var projectOption = ProjectOption();
+        var verbosityOption = VerbosityOption();
+        var command = new Command(
+            "providers",
+            "Generate an Angular provide-<project>.ts that wires interfaces, tokens, and implementations.");
+        command.AddOption(projectOption);
+        command.AddOption(verbosityOption);
+        command.SetHandler((InvocationContext ctx) =>
+        {
+            var project = ctx.ParseResult.GetValueForOption(projectOption);
+            var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
+            var writers = Writers.For(ctx.Console, verbosity);
+            ctx.ExitCode = ProvidersCommand.Run(
+                project, writers.Info, writers.Trace, writers.Warn, writers.Error);
+        });
+        return command;
     }
 
     private static Command BuildFicdInitCommand()
