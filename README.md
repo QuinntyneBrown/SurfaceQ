@@ -50,12 +50,14 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 | `diff` | Print a unified diff between expected and actual output. | no | `0` match · `1` differ · `2` error |
 | `docs` | Document every library's public API in a workspace as Markdown. | yes | `0` ok · `2` error |
 | `inventory` | Inventory every developer-authored object (apps + libraries) as Markdown. | yes | `0` ok · `2` error |
+| `ficd-init` | Seed a starter `ficd/` metadata folder into each library (run before `ficd`). | yes | `0` ok · `2` error |
+| `ficd` | Generate a Functional Interface Control Document per library from authored `ficd/` metadata. | yes | `0` ok · `2` error |
 
 ### Options
 
-- `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs` and `inventory`, this is the **workspace root** to search for projects.
+- `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs`, `inventory`, and `ficd`, this is the **workspace root** to search for projects.
 - `--verbosity <level>` — `quiet`, `minimal`, `normal` (default), `detailed`, `diagnostic`. `diagnostic` emits trace lines for the walker and sidecar.
-- `--output <path>` *(docs / inventory)* — Markdown file path, relative to each project directory. Defaults to `API.md` for `docs`, `INVENTORY.md` for `inventory`.
+- `--output <path>` *(docs / inventory / ficd)* — destination relative to each project directory. A Markdown file for `docs` (`API.md`) and `inventory` (`INVENTORY.md`); a directory for `ficd` (`docs/ficd`).
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
 
 ## Documenting a workspace
@@ -148,6 +150,61 @@ Tests are excluded (`*.spec.ts`, `*.stories.ts`, `*.e2e-spec.ts`, `*.d.ts`, and
 `*-e2e` projects), as are `node_modules` and `dist`. Output is deterministic
 (sorted by name then file) and table-safe, just like `docs`. Use
 `--output reports/INVENTORY.md` to change the per-project destination.
+
+## Generating a Functional Interface Control Document
+
+`docs` auto-generates a flat API reference. `surfaceq ficd` produces something a
+spec reviewer recognizes: a **multi-file Functional Interface Control Document**
+— numbered sections, identity blocks, capability groupings, member-by-member
+tables, requirements ("shall" statements) and cross-references — whose *structure
+and prose are authored by you* and whose *tables are filled from the code*.
+
+You drive it with a `ficd/` folder at the library root. The command merges that
+authored metadata with the extracted public API and writes a document set
+(default `docs/ficd/`, one rendered `*.md` per authored file plus a `README.md`
+index). The workflow is **seed → edit → generate**:
+
+```sh
+surfaceq ficd-init --project ./my-workspace   # 1. seed a starter ficd/ in each library
+#                                               2. open the seeded files and fill the TODOs
+surfaceq ficd --project ./my-workspace        # 3. generate the document set
+# libs/auth/ficd/…           ← you author this (seeded by ficd-init; see docs/specs/ficd-schema.md)
+# libs/auth/docs/ficd/…      ← SurfaceQ generates this
+```
+
+`ficd-init` writes a `ficd.yml` manifest plus placeholder section files with
+`TODO` markers, commented-out `groups:` examples, and `<!-- add services here -->`
+guidance. It never overwrites an existing file, so it is safe to re-run.
+
+A section file is YAML-style frontmatter plus a Markdown body. Frontmatter binds
+authored prose to symbol names the renderer resolves from the code:
+
+```md
+---
+template: services
+section: 8
+title: Core API — Services
+inventory: true
+groups:
+  - title: Outbound messaging — Command / Request / Query
+    heading: 8.3
+    access: Action
+    interfaces: [ICommandService, IRequestService, IQueryService]
+    tokens: [COMMAND_SERVICE, REQUEST_SERVICE, QUERY_SERVICE]
+    classes: [CommandService, RequestService, QueryService]
+requirements:
+  - A plugin **shall** inject the `InjectionToken`, not the concrete class.
+---
+Idiomatic injection from a tile is shown below.
+```
+
+Templates are `narrative` (default), `services` (member tables + an optional
+service-inventory table), `functions` (signature/parameter tables), and
+`data-objects` (field tables + reconstructed TypeScript + value-set tables). A
+library with no `ficd/` folder is skipped; the input and output trees mirror, so
+relative cross-links survive. Only authored `date` values appear — never the
+system clock — so output stays byte-identical across runs. The full schema is in
+[`docs/specs/ficd-schema.md`](docs/specs/ficd-schema.md).
 
 ## Manifest
 
