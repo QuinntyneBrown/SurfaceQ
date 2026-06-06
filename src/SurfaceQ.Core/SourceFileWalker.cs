@@ -4,13 +4,16 @@ public sealed class SourceFileWalker
 {
     public IEnumerable<string> Walk(ProjectContext context)
     {
-        var entryFull = Path.GetFullPath(context.EntryFile);
+        // Folder mode passes an empty EntryFile: there is no entry file to exclude.
+        var entryFull = string.IsNullOrEmpty(context.EntryFile)
+            ? null
+            : Path.GetFullPath(context.EntryFile);
         var scanRoot = Path.GetFullPath(context.ScanRoot);
         var kept = new List<string>();
         foreach (var path in Directory.EnumerateFiles(scanRoot, "*.ts", SearchOption.AllDirectories))
         {
             var full = Path.GetFullPath(path);
-            if (string.Equals(full, entryFull, StringComparison.OrdinalIgnoreCase))
+            if (entryFull != null && string.Equals(full, entryFull, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

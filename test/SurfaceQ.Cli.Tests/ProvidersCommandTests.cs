@@ -68,6 +68,8 @@ public class ProvidersCommandTests
         }
     }
 
+    // Also guards that the DocumentationPipeline Build -> BuildFromContext extraction
+    // (added for folder mode) keeps workspace mode byte-identical.
     [Fact]
     public async Task Is_deterministic_across_repeated_runs()
     {
@@ -166,6 +168,11 @@ public class ProvidersCommandTests
             // Service binding in a subfolder, imported by a relative path from the folder root.
             Assert.Contains("{ provide: BILLS_SERVICE, useExisting: BillsService },", content);
             Assert.Contains("import { BillsService } from './services/bills.service';", content);
+            // A token in a file at the folder root itself is also discovered and wired.
+            Assert.Contains("{ provide: APP_NAME, useValue: options.appName },", content);
+            Assert.Contains("import { APP_NAME } from './app-name.token';", content);
+            // Folder-mode output advertises the --folder command that reproduces it.
+            Assert.Contains("// Regenerate with: surfaceq providers --folder infrastructure", content);
         }
         finally
         {
@@ -241,14 +248,18 @@ public class ProvidersCommandTests
         }
     }
 
-    // A bare folder (no ng-package.json) with a config token nested two levels deep
-    // and an interface+token+class service binding under a subfolder.
+    // A bare folder (no ng-package.json) with a token at the folder root, a config
+    // token nested two levels deep, and an interface+token+class service binding
+    // under a subfolder — exercising recursive discovery at every depth.
     private static void CreateFolderInjectables(string folder)
     {
         var services = Path.Combine(folder, "services");
         var config = Path.Combine(folder, "config", "tokens");
         Directory.CreateDirectory(services);
         Directory.CreateDirectory(config);
+        File.WriteAllText(Path.Combine(folder, "app-name.token.ts"),
+            "import { InjectionToken } from '@angular/core';\n" +
+            "export const APP_NAME = new InjectionToken<string>('APP_NAME');\n");
         File.WriteAllText(Path.Combine(config, "api-base-url.token.ts"),
             "import { InjectionToken } from '@angular/core';\n" +
             "export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL');\n");

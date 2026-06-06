@@ -52,8 +52,8 @@ internal static class DocumentationPipeline
             error($"error: folder does not exist: '{root}'");
             return (null, 2);
         }
-        // No entry file in folder mode; a sentinel path that no real source matches.
-        var context = new ProjectContext(root, Path.Combine(root, "__surfaceq_no_entry__.ts"), root);
+        // No entry file in folder mode; an empty EntryFile excludes nothing.
+        var context = new ProjectContext(root, "", root);
         return BuildFromContext(
             context, root, new DirectoryInfo(root).Name, includeImplementations,
             info, trace, warn, error);

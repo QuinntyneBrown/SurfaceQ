@@ -52,8 +52,8 @@ public static class Program
     private static Option<string?> ProvidersFolderOption() =>
         new(
             "--folder",
-            "Generate a single provide-<folder>.ts for this folder and its subfolders, " +
-            "instead of scanning the workspace for libraries.");
+            "Generate a single provide-<folder>.ts for this folder and its subfolders. " +
+            "Takes precedence over --project (the workspace is not scanned when set).");
 
     private static Command BuildFicdInitCommand()
     {

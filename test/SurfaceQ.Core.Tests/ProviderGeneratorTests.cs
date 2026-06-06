@@ -141,6 +141,8 @@ public class ProviderGeneratorTests
         Assert.Contains("import { API_BASE_URL } from './config/api-base-url.token';", c);
         Assert.Contains("import { BILLS_SERVICE } from './bills/bills.service.contract';", c);
         Assert.Contains("import { BillsService } from './bills/bills.service';", c);
+        // Folder-mode files advertise the --folder invocation that reproduces them.
+        Assert.Contains("// Regenerate with: surfaceq providers --folder services", c);
     }
 
     private static string F(string relative) =>
