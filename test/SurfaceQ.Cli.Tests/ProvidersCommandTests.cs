@@ -135,6 +135,134 @@ public class ProvidersCommandTests
         }
     }
 
+    // Acceptance Test
+    // Traces to: L2-041
+    // Description: `surfaceq providers --folder <dir>` treats the directory as a
+    // self-contained scan root (no ng-package.json), wiring tokens found in it and
+    // its subfolders into a single provide-<folder>.ts written at the folder root.
+    [Fact]
+    public async Task Folder_mode_generates_provide_file_for_the_folder_and_subfolders()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var folder = Path.Combine(ws, "infrastructure");
+            CreateFolderInjectables(folder);
+
+            var console = new TestConsole();
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "providers", "--folder", folder }, console);
+
+            Assert.Equal(0, exit);
+            var provide = Path.Combine(folder, "provide-infrastructure.ts");
+            Assert.True(File.Exists(provide), console.Out.ToString() + console.Error.ToString());
+            var content = File.ReadAllText(provide, Encoding.UTF8);
+            Assert.Contains(
+                "export function provideInfrastructure(options: ProvideInfrastructureOptions): EnvironmentProviders {",
+                content);
+            // Config token nested two levels below the folder is discovered (recursive).
+            Assert.Contains("{ provide: API_BASE_URL, useValue: options.apiBaseUrl },", content);
+            Assert.Contains("readonly apiBaseUrl: string;", content);
+            // Service binding in a subfolder, imported by a relative path from the folder root.
+            Assert.Contains("{ provide: BILLS_SERVICE, useExisting: BillsService },", content);
+            Assert.Contains("import { BillsService } from './services/bills.service';", content);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_is_deterministic_across_repeated_runs()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var folder = Path.Combine(ws, "infrastructure");
+            CreateFolderInjectables(folder);
+            var provide = Path.Combine(folder, "provide-infrastructure.ts");
+
+            await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "providers", "--folder", folder }, new TestConsole());
+            var first = File.ReadAllText(provide, Encoding.UTF8);
+            await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "providers", "--folder", folder }, new TestConsole());
+            var second = File.ReadAllText(provide, Encoding.UTF8);
+
+            Assert.Equal(first, second);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_exits_2_when_the_folder_does_not_exist()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var console = new TestConsole();
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "providers", "--folder", Path.Combine(ws, "nope") }, console);
+
+            Assert.Equal(2, exit);
+            Assert.Contains("does not exist", console.Error.ToString());
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_skips_a_folder_with_no_injectable_contracts()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var folder = Path.Combine(ws, "models");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "foo.ts"), "export interface Foo { id: string; }\n");
+
+            var console = new TestConsole();
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "providers", "--folder", folder }, console);
+
+            Assert.Equal(0, exit);
+            Assert.Contains("no injectable contracts", console.Out.ToString());
+            Assert.Empty(Directory.GetFiles(folder, "provide-*.ts", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // A bare folder (no ng-package.json) with a config token nested two levels deep
+    // and an interface+token+class service binding under a subfolder.
+    private static void CreateFolderInjectables(string folder)
+    {
+        var services = Path.Combine(folder, "services");
+        var config = Path.Combine(folder, "config", "tokens");
+        Directory.CreateDirectory(services);
+        Directory.CreateDirectory(config);
+        File.WriteAllText(Path.Combine(config, "api-base-url.token.ts"),
+            "import { InjectionToken } from '@angular/core';\n" +
+            "export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL');\n");
+        File.WriteAllText(Path.Combine(services, "bills.service.contract.ts"),
+            "import { InjectionToken } from '@angular/core';\n" +
+            "export interface IBillsService { list(): boolean; }\n" +
+            "export const BILLS_SERVICE = new InjectionToken<IBillsService>('BILLS_SERVICE');\n");
+        File.WriteAllText(Path.Combine(services, "bills.service.ts"),
+            "import { Injectable } from '@angular/core';\n" +
+            "import { IBillsService } from './bills.service.contract';\n" +
+            "@Injectable({ providedIn: 'root' })\n" +
+            "export class BillsService implements IBillsService { list(): boolean { return true; } }\n");
+    }
+
     private static string NewWorkspace()
     {
         var ws = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));

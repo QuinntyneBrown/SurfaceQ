@@ -14,11 +14,19 @@ internal static class ProvidersCommand
 {
     public static int Run(
         string? project,
+        string? folder,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
         Action<string> error)
     {
+        // --folder takes precedence: generate one provide-<folder>.ts for that
+        // directory and its subfolders, instead of scanning the workspace.
+        if (!string.IsNullOrWhiteSpace(folder))
+        {
+            return RunFolder(folder!, info, trace, warn, error);
+        }
+
         var root = string.IsNullOrWhiteSpace(project)
             ? Directory.GetCurrentDirectory()
             : Path.GetFullPath(project);
@@ -55,6 +63,30 @@ internal static class ProvidersCommand
             }
         }
         return failed ? 2 : 0;
+    }
+
+    private static int RunFolder(
+        string folder,
+        Action<string> info,
+        Action<string> trace,
+        Action<string> warn,
+        Action<string> error)
+    {
+        var (provider, exit) = ProviderPipeline.BuildFromFolder(folder, info, trace, warn, error);
+        if (exit != 0 || provider == null)
+        {
+            return 2;
+        }
+        foreach (var warning in provider.Warnings)
+        {
+            warn($"warn: {warning}");
+        }
+        if (provider.BindingCount == 0)
+        {
+            info($"info: no injectable contracts found in '{Path.GetFullPath(folder)}'; skipped");
+            return 0;
+        }
+        return Write(provider, info, error) ? 0 : 2;
     }
 
     private static bool Write(GeneratedProvider provider, Action<string> info, Action<string> error)

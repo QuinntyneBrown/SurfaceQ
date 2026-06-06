@@ -113,6 +113,36 @@ public class ProviderGeneratorTests
         Assert.EndsWith("\n", first.Content);
     }
 
+    // Acceptance Test
+    // Traces to: L2-041
+    // Description: when an explicit output directory is supplied (folder mode),
+    // ProviderGenerator anchors provide-<folder>.ts at that directory and computes
+    // import specifiers relative to it, regardless of where the wired declarations
+    // live beneath it.
+    [Fact]
+    public void Anchors_at_the_supplied_output_directory_in_folder_mode()
+    {
+        var api = new LibraryApi("services", new[]
+        {
+            Token("API_BASE_URL", "string", F("services/config/api-base-url.token.ts")),
+            Iface("IBillsService", F("services/bills/bills.service.contract.ts")),
+            Token("BILLS_SERVICE", "IBillsService", F("services/bills/bills.service.contract.ts")),
+            Cls("BillsService", F("services/bills/bills.service.ts"), "IBillsService"),
+        });
+        var outputDir = Path.Combine(Root, "services");
+
+        var result = new ProviderGenerator().Generate(api, "services", outputDir);
+
+        Assert.Equal("provideServices", result.FunctionName);
+        Assert.Equal(
+            Path.Combine(outputDir, "provide-services.ts"),
+            Path.GetFullPath(result.TargetFile));
+        var c = result.Content;
+        Assert.Contains("import { API_BASE_URL } from './config/api-base-url.token';", c);
+        Assert.Contains("import { BILLS_SERVICE } from './bills/bills.service.contract';", c);
+        Assert.Contains("import { BillsService } from './bills/bills.service';", c);
+    }
+
     private static string F(string relative) =>
         Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
 

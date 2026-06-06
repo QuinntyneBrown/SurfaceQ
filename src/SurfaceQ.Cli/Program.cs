@@ -28,22 +28,32 @@ public static class Program
     private static Command BuildProvidersCommand()
     {
         var projectOption = ProjectOption();
+        var folderOption = ProvidersFolderOption();
         var verbosityOption = VerbosityOption();
         var command = new Command(
             "providers",
-            "Generate an Angular provide-<project>.ts that wires interfaces, tokens, and implementations.");
+            "Generate an Angular provide-<project>.ts (per library, or per --folder) " +
+            "that wires interfaces, tokens, and implementations.");
         command.AddOption(projectOption);
+        command.AddOption(folderOption);
         command.AddOption(verbosityOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
+            var folder = ctx.ParseResult.GetValueForOption(folderOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
             var writers = Writers.For(ctx.Console, verbosity);
             ctx.ExitCode = ProvidersCommand.Run(
-                project, writers.Info, writers.Trace, writers.Warn, writers.Error);
+                project, folder, writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
+
+    private static Option<string?> ProvidersFolderOption() =>
+        new(
+            "--folder",
+            "Generate a single provide-<folder>.ts for this folder and its subfolders, " +
+            "instead of scanning the workspace for libraries.");
 
     private static Command BuildFicdInitCommand()
     {

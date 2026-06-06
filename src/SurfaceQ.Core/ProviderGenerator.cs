@@ -12,12 +12,16 @@ namespace SurfaceQ.Core;
 // (so relative imports match the existing source layout) and is deterministic:
 // tokens are ordered by name, imports grouped per module and sorted. Content is
 // joined with explicit "\n" for LF regardless of how this source is checked out.
-// Mirrors the hand-written shape of provide-api.ts. A future revision will honor
-// @internal / @publicApi JSDoc tags; v1 includes every implemented contract.
+// Mirrors the hand-written shape of provide-api.ts. When an explicit outputDir is
+// supplied (folder mode) the file is anchored there instead and imports are made
+// relative to it. A future revision will honor @internal / @publicApi JSDoc tags;
+// v1 includes every implemented contract.
 
 public sealed class ProviderGenerator
 {
-    public GeneratedProvider Generate(LibraryApi api, string projectName)
+    // outputDir, when given, fixes where provide-<name>.ts is written (folder mode);
+    // otherwise the file is anchored at the wired declarations' common ancestor.
+    public GeneratedProvider Generate(LibraryApi api, string projectName, string? outputDir = null)
     {
         var (config, services, warnings) = Classify(api);
         var functionName = "provide" + Pascal(projectName);
@@ -26,7 +30,9 @@ public sealed class ProviderGenerator
             return new GeneratedProvider(functionName, "", "", 0, warnings);
         }
         var imports = BuildImports(api, config, services);
-        var anchorDir = CommonAncestor(imports.Select(i => i.File).ToList());
+        var anchorDir = outputDir != null
+            ? Path.GetFullPath(outputDir)
+            : CommonAncestor(imports.Select(i => i.File).ToList());
         var targetFile = Path.Combine(anchorDir, "provide-" + Slug(projectName) + ".ts");
         var content = Render(functionName, projectName, config, services, imports, anchorDir);
         return new GeneratedProvider(functionName, targetFile, content, config.Count + services.Count, warnings);

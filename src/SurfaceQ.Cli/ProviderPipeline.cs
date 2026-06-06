@@ -28,4 +28,27 @@ internal static class ProviderPipeline
         trace($"trace: {projectName}: {provider.BindingCount} binding(s) for {provider.FunctionName}");
         return (provider, 0);
     }
+
+    // Folder mode: scan an arbitrary directory (and its subfolders) as a single unit
+    // and wire one provide-<folder>.ts anchored at that folder. Parallels Build but
+    // skips ng-package.json discovery — the folder itself is the scan root.
+    public static (GeneratedProvider? Provider, int ExitCode) BuildFromFolder(
+        string folderPath,
+        Action<string> info,
+        Action<string> trace,
+        Action<string> warn,
+        Action<string> error)
+    {
+        var (api, exit) = DocumentationPipeline.BuildFromFolder(
+            folderPath, includeImplementations: true, info, trace, warn, error);
+        if (exit != 0 || api == null)
+        {
+            return (null, 2);
+        }
+        var folderFull = Path.GetFullPath(folderPath);
+        var folderName = new DirectoryInfo(folderFull).Name;
+        var provider = new ProviderGenerator().Generate(api, folderName, folderFull);
+        trace($"trace: {folderName}: {provider.BindingCount} binding(s) for {provider.FunctionName}");
+        return (provider, 0);
+    }
 }

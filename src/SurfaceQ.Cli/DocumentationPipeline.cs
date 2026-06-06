@@ -30,8 +30,47 @@ internal static class DocumentationPipeline
         }
 
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
+        return BuildFromContext(
+            context, manifestDir, LibraryName(manifestPath), includeImplementations,
+            info, trace, warn, error);
+    }
+
+    // Folder mode: treat an arbitrary directory as a self-contained scan root, with
+    // no ng-package.json and no entry file to exclude. Used by the providers command
+    // when invoked with --folder. The library name is just the folder's own name.
+    public static (LibraryApi? Library, int ExitCode) BuildFromFolder(
+        string folderPath,
+        bool includeImplementations,
+        Action<string> info,
+        Action<string> trace,
+        Action<string> warn,
+        Action<string> error)
+    {
+        var root = Path.GetFullPath(folderPath);
+        if (!Directory.Exists(root))
+        {
+            error($"error: folder does not exist: '{root}'");
+            return (null, 2);
+        }
+        // No entry file in folder mode; a sentinel path that no real source matches.
+        var context = new ProjectContext(root, Path.Combine(root, "__surfaceq_no_entry__.ts"), root);
+        return BuildFromContext(
+            context, root, new DirectoryInfo(root).Name, includeImplementations,
+            info, trace, warn, error);
+    }
+
+    private static (LibraryApi? Library, int ExitCode) BuildFromContext(
+        ProjectContext context,
+        string baseDir,
+        string libraryName,
+        bool includeImplementations,
+        Action<string> info,
+        Action<string> trace,
+        Action<string> warn,
+        Action<string> error)
+    {
         var sources = new SourceFileWalker().Walk(context).ToList();
-        trace($"trace: walker returned {sources.Count} source file(s) for '{manifestDir}'");
+        trace($"trace: walker returned {sources.Count} source file(s) for '{baseDir}'");
 
         var declarations = new List<ApiDeclaration>();
         var errorMessages = new List<string>();
@@ -57,8 +96,8 @@ internal static class DocumentationPipeline
             {
                 declarations.Add(ParseDeclaration(d));
             }
-            CollectWarnings(result, manifestDir, warnedFiles, warn);
-            CollectErrors(result, manifestDir, errorMessages);
+            CollectWarnings(result, baseDir, warnedFiles, warn);
+            CollectErrors(result, baseDir, errorMessages);
         }
 
         if (errorMessages.Count > 0)
@@ -72,7 +111,7 @@ internal static class DocumentationPipeline
         var documented = includeImplementations
             ? declarations
             : ExcludeImplementations(declarations, info);
-        return (new LibraryApi(LibraryName(manifestPath), documented), 0);
+        return (new LibraryApi(libraryName, documented), 0);
     }
 
     // By default the document represents the contract a consumer codes against:
