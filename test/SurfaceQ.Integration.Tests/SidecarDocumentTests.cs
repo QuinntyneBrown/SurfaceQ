@@ -252,6 +252,86 @@ public class SidecarDocumentTests
         }
     }
 
+    // Acceptance Test
+    // Traces to: L2-042
+    // Description: document tags each class declaration with its Angular role so the
+    // docs --services filter can keep only @Injectable services. A guard/component/
+    // plain class are classified the same way the inventory path classifies them.
+    [Fact]
+    public void Document_tags_class_role_for_services_filter()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "roles.ts");
+            File.WriteAllText(
+                file,
+                "import { Injectable, Component } from '@angular/core';\n" +
+                "@Injectable({ providedIn: 'root' })\n" +
+                "export class AuthService { login(): boolean { return true; } }\n" +
+                "@Component({ selector: 'x-thing' })\n" +
+                "export class ThingComponent {}\n" +
+                "export class PlainHelper { help(): void {} }\n");
+
+            var result = SendDocument(file);
+            var declarations = result.GetProperty("declarations").EnumerateArray().ToList();
+            string Role(string name) => declarations
+                .Single(d => d.GetProperty("name").GetString() == name)
+                .GetProperty("role").GetString()!;
+
+            Assert.Equal("Service", Role("AuthService"));
+            Assert.Equal("Component", Role("ThingComponent"));
+            Assert.Equal("Class", Role("PlainHelper"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-044
+    // Description: A callable interface (a function exposed via interface + token)
+    // reports its call signature as a member of kind "call" with parameters and
+    // return type and an empty name — previously it returned no members.
+    [Fact]
+    public void Document_returns_interface_call_signature_members()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "format-date.ts");
+            File.WriteAllText(
+                file,
+                "import { InjectionToken } from '@angular/core';\n" +
+                "/** Formats a date. */\n" +
+                "export interface FormatDate {\n" +
+                "  (date: Date, format: string): string;\n" +
+                "}\n" +
+                "export const FORMAT_DATE = new InjectionToken<FormatDate>('FORMAT_DATE');\n");
+
+            var result = SendDocument(file);
+            var iface = result.GetProperty("declarations").EnumerateArray()
+                .Single(d => d.GetProperty("name").GetString() == "FormatDate");
+            var call = iface.GetProperty("members").EnumerateArray()
+                .Single(m => m.GetProperty("memberKind").GetString() == "call");
+
+            Assert.Equal("", call.GetProperty("name").GetString());
+            Assert.Equal("string", call.GetProperty("returnType").GetString());
+            var parameters = call.GetProperty("parameters").EnumerateArray().ToList();
+            Assert.Equal("date", parameters[0].GetProperty("name").GetString());
+            Assert.Equal("Date", parameters[0].GetProperty("type").GetString());
+            Assert.Equal("format", parameters[1].GetProperty("name").GetString());
+            Assert.Equal("string", parameters[1].GetProperty("type").GetString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     [Fact]
     public void Document_reports_parse_errors()
     {

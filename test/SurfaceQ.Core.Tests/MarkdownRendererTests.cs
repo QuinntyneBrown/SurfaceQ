@@ -33,6 +33,55 @@ public class MarkdownRendererTests
         Assert.Contains("| `hasRole` | `role: Role \\| string` | `boolean` | no | Checks a role. |", md);
     }
 
+    // Acceptance Test
+    // Traces to: L2-044
+    // Description: A callable interface renders a Call signatures table (no Method
+    // column) instead of "_No public members._".
+    [Fact]
+    public void Renders_callable_interface_call_signature()
+    {
+        var call = new ApiMember(
+            "call", "", "", "string", false, false,
+            new[] { new ApiParameter("date", "Date", false), new ApiParameter("format", "string", false) },
+            "", false, "");
+        var iface = Decl("FormatDate", "interface", doc: "Formats a date.", members: new[] { call });
+
+        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { iface }));
+
+        Assert.Contains("### `FormatDate`", md);
+        Assert.Contains("**Call signatures**", md);
+        Assert.Contains("| Parameters | Returns | Deprecated | Description |", md);
+        Assert.Contains("| `date: Date, format: string` | `string` | no | – |", md);
+        Assert.DoesNotContain("_No public members._", md);
+    }
+
+    // Acceptance Test
+    // Traces to: L2-044
+    // Description: A hybrid interface (call signature + named property + method)
+    // renders all three tables.
+    [Fact]
+    public void Renders_hybrid_callable_interface_with_named_members()
+    {
+        var call = new ApiMember(
+            "call", "", "", "number", false, false,
+            new[] { new ApiParameter("x", "number", false) }, "", false, "");
+        var iface = Decl("Counter", "interface", members: new[]
+        {
+            call,
+            Property("count", "number", optional: false, isReadonly: true, doc: ""),
+            Method("reset", "void", doc: ""),
+        });
+
+        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { iface }));
+
+        Assert.Contains("**Call signatures**", md);
+        Assert.Contains("| `x: number` | `number` | no | – |", md);
+        Assert.Contains("**Properties**", md);
+        Assert.Contains("| `readonly count` | `number` | no | no | – |", md);
+        Assert.Contains("**Methods**", md);
+        Assert.Contains("| `reset` | `()` | `void` | no | – |", md);
+    }
+
     [Fact]
     public void Renders_injection_token_with_contract_type()
     {

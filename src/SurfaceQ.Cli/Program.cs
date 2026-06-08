@@ -132,20 +132,28 @@ public static class Program
         var verbosityOption = VerbosityOption();
         var outputOption = OutputOption();
         var includeImplementationsOption = IncludeImplementationsOption();
+        var servicesOption = ServicesOption();
+        var includeDeprecatedTypesOption = IncludeDeprecatedTypesOption();
         var command = new Command("docs", "Document each library's public API as Markdown.");
         command.AddOption(projectOption);
         command.AddOption(verbosityOption);
         command.AddOption(outputOption);
         command.AddOption(includeImplementationsOption);
+        command.AddOption(servicesOption);
+        command.AddOption(includeDeprecatedTypesOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
-            var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "API.md";
             var includeImplementations = ctx.ParseResult.GetValueForOption(includeImplementationsOption);
+            var services = ctx.ParseResult.GetValueForOption(servicesOption);
+            var includeDeprecatedTypes = ctx.ParseResult.GetValueForOption(includeDeprecatedTypesOption);
+            // An explicit --output always wins; otherwise --services picks SERVICE_API.md.
+            var output = ctx.ParseResult.GetValueForOption(outputOption)
+                ?? (services ? "SERVICE_API.md" : "API.md");
             var writers = Writers.For(ctx.Console, verbosity);
             ctx.ExitCode = DocsCommand.Run(
-                project, output, includeImplementations,
+                project, output, includeImplementations, services, includeDeprecatedTypes,
                 writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
@@ -206,14 +214,23 @@ public static class Program
         return option;
     }
 
-    private static Option<string?> OutputOption()
-    {
-        var option = new Option<string?>(
+    private static Option<string?> OutputOption() =>
+        // No default value here: when unset, the docs handler resolves it to
+        // API.md, or SERVICE_API.md when --services is passed.
+        new(
             "--output",
-            "Markdown file path, relative to each library directory.");
-        option.SetDefaultValue("API.md");
-        return option;
-    }
+            "Markdown file path, relative to each library directory " +
+            "(default API.md, or SERVICE_API.md with --services).");
+
+    private static Option<bool> ServicesOption() =>
+        new(
+            "--services",
+            "Document only Angular services (@Injectable classes) into SERVICE_API.md.");
+
+    private static Option<bool> IncludeDeprecatedTypesOption() =>
+        new(
+            "--include-deprecated-types",
+            "Include declarations tagged @deprecated (excluded by default).");
 
     private static Option<string?> InventoryOutputOption()
     {

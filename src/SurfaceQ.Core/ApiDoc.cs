@@ -41,6 +41,7 @@ public sealed record ApiDeclaration(
     IReadOnlyList<EnumMember> EnumMembers,
     bool Deprecated,
     string DeprecationReason,
-    string File = "");
+    string File = "",
+    string Role = "");
 
 public sealed record LibraryApi(string Name, IReadOnlyList<ApiDeclaration> Declarations);

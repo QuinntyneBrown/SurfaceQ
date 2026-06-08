@@ -131,6 +131,10 @@ public class DocsCommandTests
         }
     }
 
+    // Acceptance Test
+    // Traces to: L2-030, L2-043
+    // Description: With --include-deprecated-types, a deprecated declaration is kept
+    // and rendered with its Deprecated column, callout, and Deprecations summary.
     [Fact]
     public async Task Docs_marks_deprecated_declarations_and_members()
     {
@@ -146,8 +150,12 @@ public class DocsCommandTests
                 "  value: string;\n" +
                 "}\n");
 
+            // Deprecated declarations are excluded by default, so the flag is needed
+            // to render OldId; the member-level deprecation on Token.raw would survive
+            // either way (Token itself is not deprecated).
             var exit = await Program.BuildRootCommand()
-                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+                .InvokeAsync(
+                    new[] { "docs", "--project", ws, "--include-deprecated-types" }, new TestConsole());
 
             Assert.Equal(0, exit);
             var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
@@ -205,6 +213,184 @@ public class DocsCommandTests
             var second = File.ReadAllText(path, Encoding.UTF8);
 
             Assert.Equal(first, second);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-042
+    // Description: --services restricts the document to Angular @Injectable service
+    // classes and writes SERVICE_API.md (not API.md); services survive the default
+    // implementation-hiding because a service is the implementation a token hides.
+    [Fact]
+    public async Task Docs_services_flag_writes_service_api_with_only_services()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "import { Injectable, Component, InjectionToken } from '@angular/core';\n" +
+                "export interface IAuthService { login(u: string): boolean; }\n" +
+                "export const AUTH_SERVICE = new InjectionToken<IAuthService>('AUTH_SERVICE');\n" +
+                "@Injectable({ providedIn: 'root' })\n" +
+                "export class AuthService implements IAuthService { login(u: string): boolean { return true; } }\n" +
+                "export class PlainHelper { help(): void {} }\n" +
+                "@Component({ selector: 'x-thing' })\n" +
+                "export class ThingComponent {}\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws, "--services" }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var libDir = Path.Combine(ws, "libs", "auth");
+            Assert.True(File.Exists(Path.Combine(libDir, "SERVICE_API.md")));
+            Assert.False(File.Exists(Path.Combine(libDir, "API.md")));
+
+            var doc = File.ReadAllText(Path.Combine(libDir, "SERVICE_API.md"), Encoding.UTF8);
+            // The @Injectable service is kept even though it implements an exported interface.
+            Assert.Contains("### `AuthService`", doc);
+            Assert.Contains("_Implements: `IAuthService`_", doc);
+            // Everything that is not a service is excluded.
+            Assert.DoesNotContain("## Interfaces", doc);
+            Assert.DoesNotContain("## Injection Tokens", doc);
+            Assert.DoesNotContain("### `PlainHelper`", doc);
+            Assert.DoesNotContain("### `ThingComponent`", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-042
+    // Description: An explicit --output overrides the SERVICE_API.md default that
+    // --services would otherwise pick.
+    [Fact]
+    public async Task Docs_services_explicit_output_overrides_service_api_default()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "import { Injectable } from '@angular/core';\n" +
+                "@Injectable()\n" +
+                "export class AuthService { login(): boolean { return true; } }\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(
+                    new[] { "docs", "--project", ws, "--services", "--output", "docs/SERVICES.md" },
+                    new TestConsole());
+
+            Assert.Equal(0, exit);
+            var libDir = Path.Combine(ws, "libs", "auth");
+            Assert.True(File.Exists(Path.Combine(libDir, "docs", "SERVICES.md")));
+            Assert.False(File.Exists(Path.Combine(libDir, "SERVICE_API.md")));
+            var doc = File.ReadAllText(Path.Combine(libDir, "docs", "SERVICES.md"), Encoding.UTF8);
+            Assert.Contains("### `AuthService`", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-043
+    // Description: A declaration tagged @deprecated is omitted by default; a live
+    // sibling stays, and the now-empty Deprecations summary is not rendered.
+    [Fact]
+    public async Task Docs_excludes_deprecated_types_by_default()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "/** @deprecated use NewThing */\n" +
+                "export interface OldThing { a: string; }\n" +
+                "export interface NewThing { b: string; }\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
+            Assert.Contains("### `NewThing`", doc);
+            Assert.DoesNotContain("### `OldThing`", doc);
+            Assert.DoesNotContain("## Deprecations", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-043
+    // Description: The default exclusion is declaration-level only — a deprecated
+    // member inside a non-deprecated declaration is kept and still flagged.
+    [Fact]
+    public async Task Docs_keeps_deprecated_members_of_live_declarations_by_default()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "export interface Token {\n" +
+                "  /** @deprecated use value */\n" +
+                "  raw: string;\n" +
+                "  value: string;\n" +
+                "}\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
+            Assert.Contains("### `Token`", doc);
+            Assert.Contains("| `raw` | `string` | no | use value | – |", doc);
+            // A surviving member-level deprecation still drives the summary.
+            Assert.Contains("## Deprecations", doc);
+            Assert.Contains("| `Token.raw` | property | use value |", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-044
+    // Description: A function exposed as a callable interface + injection token is
+    // documented with its call signature (parameters + return type), not "no members".
+    [Fact]
+    public async Task Docs_documents_callable_interface_behind_token()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "fmt", "@acme/fmt",
+                "import { InjectionToken } from '@angular/core';\n" +
+                "/** Formats a date. */\n" +
+                "export interface FormatDate {\n" +
+                "  (date: Date, format: string): string;\n" +
+                "}\n" +
+                "export const FORMAT_DATE = new InjectionToken<FormatDate>('FORMAT_DATE');\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(ws, "libs", "fmt", "API.md"), Encoding.UTF8);
+            Assert.Contains("### `FormatDate`", doc);
+            Assert.Contains("**Call signatures**", doc);
+            Assert.Contains("| `date: Date, format: string` | `string` | no | – |", doc);
+            Assert.DoesNotContain("_No public members._", doc);
+            // The token still surfaces the contract type.
+            Assert.Contains("| `FORMAT_DATE` | `FormatDate` |", doc);
         }
         finally
         {

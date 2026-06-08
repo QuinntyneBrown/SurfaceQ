@@ -16,7 +16,9 @@ internal static class DocumentationPipeline
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
-        Action<string> error)
+        Action<string> error,
+        bool excludeDeprecated = false,
+        bool servicesOnly = false)
     {
         ProjectContext context;
         try
@@ -32,7 +34,7 @@ internal static class DocumentationPipeline
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
         return BuildFromContext(
             context, manifestDir, LibraryName(manifestPath), includeImplementations,
-            info, trace, warn, error);
+            info, trace, warn, error, excludeDeprecated, servicesOnly);
     }
 
     // Folder mode: treat an arbitrary directory as a self-contained scan root, with
@@ -67,7 +69,9 @@ internal static class DocumentationPipeline
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
-        Action<string> error)
+        Action<string> error,
+        bool excludeDeprecated = false,
+        bool servicesOnly = false)
     {
         var sources = new SourceFileWalker().Walk(context).ToList();
         trace($"trace: walker returned {sources.Count} source file(s) for '{baseDir}'");
@@ -108,10 +112,75 @@ internal static class DocumentationPipeline
             }
             return (null, 2);
         }
-        var documented = includeImplementations
-            ? declarations
-            : ExcludeImplementations(declarations, info);
+        var documented = SelectDeclarations(
+            declarations, includeImplementations, servicesOnly, excludeDeprecated, info);
         return (new LibraryApi(libraryName, documented), 0);
+    }
+
+    // Applies the docs command's post-extraction filters. Services mode supersedes
+    // implementation-hiding: a service is the very implementation a token hides, so
+    // we keep service classes directly from the full set. Deprecated-declaration
+    // exclusion then composes on top of whichever set was selected. Both filters
+    // default off, so the providers/ficd callers see every extracted declaration.
+    private static List<ApiDeclaration> SelectDeclarations(
+        List<ApiDeclaration> declarations,
+        bool includeImplementations,
+        bool servicesOnly,
+        bool excludeDeprecated,
+        Action<string> info)
+    {
+        var kept = servicesOnly
+            ? OnlyServices(declarations, info)
+            : includeImplementations ? declarations : ExcludeImplementations(declarations, info);
+        return excludeDeprecated ? ExcludeDeprecated(kept, info) : kept;
+    }
+
+    // Keeps only classes the sidecar classified as an Angular Service (an
+    // @Injectable that is not a Component/Directive/Pipe/NgModule/Guard/Resolver/
+    // Interceptor). Other declarations — interfaces, tokens, plain classes — drop out.
+    private static List<ApiDeclaration> OnlyServices(
+        List<ApiDeclaration> declarations,
+        Action<string> info)
+    {
+        var services = new List<ApiDeclaration>();
+        foreach (var d in declarations)
+        {
+            if (d.Kind == "class" && d.Role == "Service")
+            {
+                services.Add(d);
+            }
+        }
+        info($"info: services mode: documenting {services.Count} service class(es)");
+        return services;
+    }
+
+    // Drops every declaration carrying an @deprecated JSDoc tag (the whole type).
+    // Member-level deprecations inside a kept declaration are untouched — they are
+    // still rendered with their Deprecated column. --include-deprecated-types skips this.
+    private static List<ApiDeclaration> ExcludeDeprecated(
+        List<ApiDeclaration> declarations,
+        Action<string> info)
+    {
+        var kept = new List<ApiDeclaration>();
+        var hidden = new List<string>();
+        foreach (var d in declarations)
+        {
+            if (d.Deprecated)
+            {
+                hidden.Add(d.Name);
+            }
+            else
+            {
+                kept.Add(d);
+            }
+        }
+        if (hidden.Count > 0)
+        {
+            hidden.Sort(StringComparer.Ordinal);
+            info($"info: excluded {hidden.Count} deprecated declaration(s) " +
+                 $"({string.Join(", ", hidden)}); pass --include-deprecated-types to show them");
+        }
+        return kept;
     }
 
     // By default the document represents the contract a consumer codes against:
@@ -233,7 +302,8 @@ internal static class DocumentationPipeline
             EnumMembers: ParseEnumMembers(d),
             Deprecated: Bool(d, "deprecated"),
             DeprecationReason: Str(d, "deprecationReason"),
-            File: Str(d, "file"));
+            File: Str(d, "file"),
+            Role: Str(d, "role"));
     }
 
     private static IReadOnlyList<ApiParameter> ParseParameters(JsonElement parent)

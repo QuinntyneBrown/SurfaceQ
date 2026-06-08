@@ -60,6 +60,8 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 - `--verbosity <level>` — `quiet`, `minimal`, `normal` (default), `detailed`, `diagnostic`. `diagnostic` emits trace lines for the walker and sidecar.
 - `--output <path>` *(docs / inventory / ficd)* — destination relative to each project directory. A Markdown file for `docs` (`API.md`) and `inventory` (`INVENTORY.md`); a directory for `ficd` (`docs/ficd`).
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
+- `--services` *(docs only)* — document only Angular services (`@Injectable` classes). Writes `SERVICE_API.md` per library unless `--output` is given.
+- `--include-deprecated-types` *(docs only)* — include declarations tagged `@deprecated`. Excluded by default (see below).
 
 ## Documenting a workspace
 
@@ -72,7 +74,7 @@ surfaceq docs --project ./my-workspace
 
 Each document is titled from the library's `package.json` `name` (falling back to the directory name) and contains tables for:
 
-- **Interfaces** — each property (type, optional, readonly) and method (parameters and return type).
+- **Interfaces** — each property (type, optional, readonly) and method (parameters and return type). A **callable interface** (a function exposed via an interface + `InjectionToken`) lists its call signature(s) — parameters and return type — under a `Call signatures` table.
 - **Injection Tokens** — the token and the **contract type** `T` from `new InjectionToken<T>(…)`, so consumers depend on the interface rather than an implementation.
 - **Enums** — members and their (declared or computed) values.
 - **Type Aliases** — the aliased definition.
@@ -91,6 +93,17 @@ surfaceq docs --project ./my-workspace --include-implementations   # show it any
 
 Classes that implement only an external interface (e.g. Angular's `ControlValueAccessor`) or no interface at all are used directly and remain in the document. Hidden classes are reported on stdout so the omission is never silent.
 
+### Documenting only services
+
+Pass `--services` to narrow each document to the library's Angular **services** — the exported `@Injectable` classes (not Components, Directives, Pipes, NgModules, Guards, Resolvers, or Interceptors). The per-library file is named `SERVICE_API.md` instead of `API.md` unless you give an explicit `--output`.
+
+```sh
+surfaceq docs --project ./my-workspace --services
+# writes libs/auth/SERVICE_API.md, …
+```
+
+Services mode is the one case where implementation-hiding does *not* apply: a service is exactly the implementation a token hides, so an `@Injectable` class is kept even when it implements an interface exported by the same library. Interfaces, tokens, enums, and plain classes are left out — the document is just the services.
+
 ### Marking things deprecated
 
 Tag any declaration or member with the standard TypeScript `@deprecated` JSDoc tag — the same tag IDEs and the language service already understand. No config, no new syntax. The optional text after the tag becomes the reason.
@@ -103,7 +116,9 @@ export interface LegacyBill {
 }
 ```
 
-In the generated `API.md`:
+By default, a declaration carrying `@deprecated` (an interface, class, enum, type alias, function, const, or injection token) is **omitted from the document** — the public reference shows only what consumers should still reach for. The exclusion is declaration-level: a `@deprecated` member inside a declaration that is itself current stays in the document and is still flagged.
+
+Pass `--include-deprecated-types` to keep deprecated declarations in. When they are present:
 
 - Every table gains a **`Deprecated`** column showing the reason (or `yes` when no reason is given, `no` otherwise).
 - A deprecated interface, class, or enum also gets a `> ⚠️ **Deprecated** — …` callout under its heading.

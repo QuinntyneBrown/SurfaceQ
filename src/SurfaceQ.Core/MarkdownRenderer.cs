@@ -109,7 +109,9 @@ public sealed class MarkdownRenderer
             {
                 if (m.Deprecated)
                 {
-                    refs.Add(new DeprecatedRef($"{d.Name}.{m.Name}", m.MemberKind, m.DeprecationReason));
+                    // A call signature has no name; label it `Name()` rather than `Name.`.
+                    var item = string.IsNullOrEmpty(m.Name) ? $"{d.Name}()" : $"{d.Name}.{m.Name}";
+                    refs.Add(new DeprecatedRef(item, m.MemberKind, m.DeprecationReason));
                 }
             }
             foreach (var e in d.EnumMembers)
@@ -135,16 +137,41 @@ public sealed class MarkdownRenderer
             AppendHeritage(sb, "Extends", d.Extends);
             AppendHeritage(sb, "Implements", d.Implements);
 
+            var calls = d.Members.Where(m => m.MemberKind == "call").ToList();
             var properties = d.Members.Where(m => m.MemberKind == "property").ToList();
             var methods = d.Members.Where(m => m.MemberKind == "method").ToList();
-            if (properties.Count == 0 && methods.Count == 0)
+            if (calls.Count == 0 && properties.Count == 0 && methods.Count == 0)
             {
                 sb.Append("_No public members._\n\n");
                 continue;
             }
+            AppendCallSignatureTable(sb, calls);
             AppendPropertyTable(sb, properties);
             AppendMethodTable(sb, methods);
         }
+    }
+
+    // A callable interface (a function exposed via interface + token) carries one or
+    // more nameless call signatures. They lead the member tables because being
+    // callable is the interface's headline; overloads keep their source order.
+    private static void AppendCallSignatureTable(StringBuilder sb, List<ApiMember> calls)
+    {
+        if (calls.Count == 0)
+        {
+            return;
+        }
+        sb.Append("**Call signatures**\n\n");
+        sb.Append("| Parameters | Returns | Deprecated | Description |\n");
+        sb.Append("| --- | --- | --- | --- |\n");
+        foreach (var c in calls)
+        {
+            sb.Append("| ").Append(Code(FormatParameters(c.Parameters)))
+              .Append(" | ").Append(Code(c.ReturnType))
+              .Append(" | ").Append(DeprecatedCell(c.Deprecated, c.DeprecationReason))
+              .Append(" | ").Append(Cell(c.Doc))
+              .Append(" |\n");
+        }
+        sb.Append('\n');
     }
 
     private static void AppendPropertyTable(StringBuilder sb, List<ApiMember> properties)

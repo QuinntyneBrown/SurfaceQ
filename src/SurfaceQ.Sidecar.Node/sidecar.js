@@ -193,6 +193,9 @@ function describeDeclaration(node, sourceFile, file) {
     return {
       name: node.name.text,
       kind: 'class',
+      // Angular role (Service, Component, …) so `docs --services` can keep only
+      // @Injectable services; reuses the same classifier the inventory path uses.
+      role: classRole(node, sourceFile),
       doc: meta.summary,
       deprecated: meta.deprecated,
       deprecationReason: meta.deprecationReason,
@@ -577,6 +580,21 @@ function describeMember(member, sourceFile) {
       type: propertyType(member, sourceFile),
       optional: false,
       readonly: ts.isGetAccessorDeclaration(member),
+      deprecated: meta.deprecated,
+      deprecationReason: meta.deprecationReason,
+      doc: meta.summary,
+    };
+  }
+  // A call signature makes the interface itself callable — i.e. a function exposed
+  // via an interface + InjectionToken. It has no name; the host renders it as the
+  // interface's call signature rather than dropping it (which left "no members").
+  if (ts.isCallSignatureDeclaration(member)) {
+    return {
+      memberKind: 'call',
+      name: '',
+      parameters: member.parameters.map((p) => describeParameter(p, sourceFile)),
+      returnType: member.type ? collapse(member.type.getText(sourceFile)) : '',
+      optional: false,
       deprecated: meta.deprecated,
       deprecationReason: meta.deprecationReason,
       doc: meta.summary,

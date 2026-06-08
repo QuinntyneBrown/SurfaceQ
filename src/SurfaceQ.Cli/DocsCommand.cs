@@ -4,8 +4,10 @@ namespace SurfaceQ.Cli;
 
 // `surfaceq docs`: document every library in a workspace as Markdown.
 // Each library's API.md is written next to its ng-package.json. The --output
-// value is a path relative to each library directory (default "API.md").
-// All libraries are attempted; the command exits 2 if any library failed.
+// value is a path relative to each library directory (default "API.md", or
+// "SERVICE_API.md" under --services). Declarations tagged @deprecated are omitted
+// unless --include-deprecated-types is passed. All libraries are attempted; the
+// command exits 2 if any library failed.
 
 internal static class DocsCommand
 {
@@ -13,6 +15,8 @@ internal static class DocsCommand
         string? project,
         string output,
         bool includeImplementations,
+        bool services,
+        bool includeDeprecatedTypes,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -35,7 +39,8 @@ internal static class DocsCommand
         foreach (var manifest in manifests)
         {
             var (library, exit) = DocumentationPipeline.Build(
-                manifest, includeImplementations, info, trace, warn, error);
+                manifest, includeImplementations, info, trace, warn, error,
+                excludeDeprecated: !includeDeprecatedTypes, servicesOnly: services);
             if (exit != 0 || library == null)
             {
                 failed = true;
