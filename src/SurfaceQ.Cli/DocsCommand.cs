@@ -46,7 +46,7 @@ internal static class DocsCommand
                 failed = true;
                 continue;
             }
-            if (!WriteDoc(manifest, output, renderer.Render(library), info, error))
+            if (!WriteDoc(manifest, output, renderer.Render(library, omitContents: services), info, error))
             {
                 failed = true;
             }
