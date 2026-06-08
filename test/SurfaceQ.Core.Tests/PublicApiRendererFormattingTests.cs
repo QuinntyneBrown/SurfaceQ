@@ -1,6 +1,6 @@
 // Acceptance Test
 // Traces to: L2-011
-// Description: Output uses LF line endings, no tabs, and ends with exactly one newline.
+// Description: Non-empty output uses LF line endings, no tabs, and ends with exactly one newline.
 
 using SurfaceQ.Core;
 using Xunit;
@@ -34,15 +34,12 @@ public class PublicApiRendererFormattingTests
     }
 
     [Fact]
-    public void Empty_output_still_ends_with_single_newline()
+    public void Empty_output_is_empty()
     {
         var context = new ProjectContext("ng-package.json", "src/public-api.ts", "src");
 
         var output = new PublicApiRenderer().Render(Array.Empty<FileExports>(), context);
 
-        Assert.EndsWith("\n", output);
-        Assert.False(output.EndsWith("\n\n"), "empty output must not end with two newlines");
-        Assert.DoesNotContain("\t", output);
-        Assert.DoesNotContain("\r", output);
+        Assert.Equal("", output);
     }
 }

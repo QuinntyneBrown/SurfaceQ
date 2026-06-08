@@ -1,6 +1,6 @@
 // Acceptance Test
 // Traces to: L2-010
-// Description: Default exports are skipped with a warning; run exits 0 and writes header-only file.
+// Description: Default exports are skipped with a warning; run exits 0 and writes an empty file.
 
 using System.CommandLine;
 using System.CommandLine.IO;
@@ -31,7 +31,7 @@ public class GenerateDefaultExportTests
             var outputPath = Path.Combine(dir, "src", "public-api.ts");
             Assert.True(File.Exists(outputPath), "public-api.ts should be written");
             var content = File.ReadAllText(outputPath);
-            Assert.StartsWith("// ====", content);
+            Assert.Equal("", content);
             Assert.DoesNotContain("Foo", content);
             Assert.DoesNotContain("export ", content);
             var err = console.Error.ToString();

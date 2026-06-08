@@ -276,7 +276,7 @@ public class FicdRendererTests
     [Fact]
     public void Inventory_table_is_omitted_when_no_rows_would_be_emitted()
     {
-        // inventory: true but the group binds no interfaces -> no header-only table.
+        // inventory: true but the group binds no interfaces -> no empty table.
         var section = Section(ServicesPath, "services", 8, "Services", "", "", inventory: true,
             groups: new[] { Group("Just prose", "8.1", "Narrative only.", "Read") });
 

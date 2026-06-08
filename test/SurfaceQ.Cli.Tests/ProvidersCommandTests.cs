@@ -171,8 +171,8 @@ public class ProvidersCommandTests
             // A token in a file at the folder root itself is also discovered and wired.
             Assert.Contains("{ provide: APP_NAME, useValue: options.appName },", content);
             Assert.Contains("import { APP_NAME } from './app-name.token';", content);
-            // Folder-mode output advertises the --folder command that reproduces it.
-            Assert.Contains("// Regenerate with: surfaceq providers --folder infrastructure", content);
+            Assert.DoesNotContain("Regenerate with", content);
+            Assert.DoesNotContain("This file is generated", content);
         }
         finally
         {

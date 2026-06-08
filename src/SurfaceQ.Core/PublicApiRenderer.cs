@@ -9,17 +9,10 @@ public sealed record FileExports(
 
 public sealed class PublicApiRenderer
 {
-    private const string Header =
-        "// ============================================================\n" +
-        "// SurfaceQ — generated public API. DO NOT EDIT.\n" +
-        "// Regenerate with `surfaceq generate`.\n" +
-        "// ============================================================\n";
-
     public string Render(IReadOnlyList<FileExports> files, ProjectContext context)
     {
         var entryDir = Path.GetDirectoryName(context.EntryFile)!;
         var sb = new StringBuilder();
-        sb.Append(Header);
         foreach (var file in files)
         {
             var specifier = ComputeSpecifier(file.SourceFile, entryDir);

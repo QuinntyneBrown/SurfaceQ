@@ -34,10 +34,6 @@ public class GenerateWritesFileTests
             Assert.True(File.Exists(outputPath));
             var actual = File.ReadAllText(outputPath, Encoding.UTF8);
             var expected =
-                "// ============================================================\n" +
-                "// SurfaceQ — generated public API. DO NOT EDIT.\n" +
-                "// Regenerate with `surfaceq generate`.\n" +
-                "// ============================================================\n" +
                 "export { A } from './a';\n" +
                 "export { B } from './b';\n";
             Assert.Equal(expected, actual);

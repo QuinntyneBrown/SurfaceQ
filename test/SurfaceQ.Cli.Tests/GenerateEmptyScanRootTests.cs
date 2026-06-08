@@ -1,6 +1,6 @@
 // Acceptance Test
 // Traces to: L2-006
-// Description: Empty scan root writes a header-only public-api.ts and exits 0.
+// Description: Empty scan root writes an empty public-api.ts and exits 0.
 
 using System.CommandLine;
 using System.CommandLine.IO;
@@ -12,7 +12,7 @@ namespace SurfaceQ.Cli.Tests;
 public class GenerateEmptyScanRootTests
 {
     [Fact]
-    public async Task Empty_scan_root_writes_header_only_file_and_exits_0()
+    public async Task Empty_scan_root_writes_empty_file_and_exits_0()
     {
         var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(dir, "src"));
@@ -31,11 +31,7 @@ public class GenerateEmptyScanRootTests
             var outputPath = Path.Combine(dir, "src", "public-api.ts");
             Assert.True(File.Exists(outputPath), "public-api.ts should be written");
             var output = File.ReadAllText(outputPath);
-            Assert.StartsWith("// ====", output);
-            Assert.Contains("SurfaceQ", output);
-            Assert.Contains("DO NOT EDIT", output);
-            Assert.EndsWith("\n", output);
-            Assert.False(output.EndsWith("\n\n"), "output must not end with two newlines");
+            Assert.Equal("", output);
             Assert.DoesNotContain("export ", output);
         }
         finally
