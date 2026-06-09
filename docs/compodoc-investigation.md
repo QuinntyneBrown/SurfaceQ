@@ -17,7 +17,7 @@ documentation from Angular code that SurfaceQ does? Does it output JSON from Ang
   questions and have incompatible design constraints. Compodoc is an *application-documentation
   website generator*; SurfaceQ is a *deterministic, build-gated API-contract generator* for Angular
   *libraries*. The gaps below (determinism, public-API contract scoping, `public-api.ts` generation,
-  DI-provider generation, the FICD authoring workflow, byte-identical output, no-network/no-clock
+  DI-provider generation, byte-identical output, no-network/no-clock
   guarantees) are exactly where SurfaceQ exists. Compodoc could plausibly be used as an **alternative
   TypeScript-parsing backend** for the *docs/inventory* slice, but adopting it would forfeit the
   contracts SurfaceQ is built around.
@@ -116,7 +116,7 @@ setCompodocJson(compodocJson);
 | Primary purpose | Browsable docs **website** for an Angular **app** | Deterministic **API artifacts** for Angular **libraries** |
 | Parsing backend | TypeScript compiler API (in-process, Node) | TS compiler API in a **Node sidecar** driven by a **.NET host** |
 | Input scoping | Whole project via `tsconfig` | Files under the `ng-package.json` `entryFile` scan root |
-| Output formats | HTML site (default) **or** `documentation.json` | `public-api.ts`, Markdown (`API.md`/`SERVICE_API.md`/`INVENTORY.md`), FICD doc set, `provide-*.ts` |
+| Output formats | HTML site (default) **or** `documentation.json` | `public-api.ts`, Markdown (`API.md`/`SERVICE_API.md`/`INVENTORY.md`), `provide-*.ts` |
 | Determinism | **Not guaranteed** (issue #981) | **Byte-identical** across OS/runs — a hard contract |
 | Coverage gate | Built-in (`--coverageTest`) | Not its job (drift is gated by `check`/`diff` exit codes) |
 | Public-API contract | No concept of it | Core concept: re-export surface, value vs `export type` |
@@ -124,7 +124,6 @@ setCompodocJson(compodocJson);
 | Drift checking in CI | No (coverage only) | Yes — `check` (exit 1 on drift), `diff` |
 | Implementation hiding | `--disablePrivate`/`--disableInternal` (member-level) | Hides classes reached via injection tokens; `@deprecated` excluded by default |
 | Angular DI wiring generation | No | Yes — `providers` emits `provide-<project>.ts` |
-| Authored-doc merge workflow | `includes` (external markdown pages) | FICD: structured `ficd/` authoring + extracted API merge |
 | Network / clock | Can fetch (Google Analytics opts), uses time | **No network, no system clock** (author-supplied dates) |
 | Host runtime | Node only | .NET 8 global tool wrapping a Node sidecar |
 | Markdown table output | No (HTML/JSON) | Yes — Markdown is a first-class output |
@@ -143,13 +142,10 @@ setCompodocJson(compodocJson);
    value-vs-type re-export separation, or drift-checking exit codes. This is SurfaceQ's reason to exist.
 2. **`providers`** — generating `provide-<project>.ts` DI wiring (`useExisting` vs `useValue` +
    options) from `InjectionToken<T>` analysis has no Compodoc analogue.
-3. **`ficd` / `ficd-init`** — the structured authored-metadata-plus-extracted-API merge (manifest,
-   sections, groups, frontmatter, numbered spec-style output) is bespoke; Compodoc only supports
-   pasting external markdown pages.
-4. **Determinism guarantees** — SurfaceQ's byte-identical, LF/UTF-8, ordinal-sorted, no-clock,
+3. **Determinism guarantees** — SurfaceQ's byte-identical, LF/UTF-8, ordinal-sorted, no-clock,
    no-network contracts are explicitly required by its CI and are *not* offered (and demonstrably
    violated) by Compodoc.
-5. **Libraries-first scoping** — SurfaceQ's `docs` traces the public contract per `ng-package.json`
+4. **Libraries-first scoping** — SurfaceQ's `docs` traces the public contract per `ng-package.json`
    library; Compodoc documents the whole app/project from a `tsconfig` with no library partitioning.
 
 ---
@@ -164,7 +160,7 @@ Two narrow possibilities, both with significant friction:
   would come "for free." **Costs:** (a) determinism is not guaranteed (issue #981) — SurfaceQ would
   have to post-process and re-sort to restore byte-identical output, and validate every release;
   (b) it adds a heavy Node dependency (`@compodoc/compodoc` + its transitive tree) that SurfaceQ
-  currently avoids by vendoring only `typescript`; (c) it covers only ~2 of the 8 commands, so the
+  currently avoids by vendoring only `typescript`; (c) it covers only ~2 of the 6 commands, so the
   custom sidecar stays regardless. Net: **not worth it** — the existing sidecar is lighter,
   deterministic, and already shared across all pipelines.
 
@@ -179,7 +175,7 @@ Two narrow possibilities, both with significant friction:
 - Compodoc **can** read Angular code and document the same declaration kinds SurfaceQ surfaces (and
   more), and it **does** emit JSON via `-e json` → `documentation.json`.
 - It is **not** a replacement for SurfaceQ: it lacks public-API-barrel generation, drift checking,
-  DI-provider generation, the FICD authoring workflow, deterministic byte-identical output, and the
+  DI-provider generation, deterministic byte-identical output, and the
   no-network/no-clock guarantees that define SurfaceQ. Its JSON is also documented to be
   non-deterministic across runs.
 - **Recommendation:** treat Compodoc as a **complementary** documentation *website* + coverage tool,
