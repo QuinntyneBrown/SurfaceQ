@@ -121,7 +121,7 @@ internal static class DocumentationPipeline
     // implementation-hiding: a service is the very implementation a token hides, so
     // we keep service classes directly from the full set. Deprecated-declaration
     // exclusion then composes on top of whichever set was selected. Both filters
-    // default off, so the providers/ficd callers see every extracted declaration.
+    // default off, so the providers caller sees every extracted declaration.
     private static List<ApiDeclaration> SelectDeclarations(
         List<ApiDeclaration> declarations,
         bool includeImplementations,
