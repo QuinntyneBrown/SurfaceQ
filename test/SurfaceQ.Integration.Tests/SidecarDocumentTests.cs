@@ -254,11 +254,12 @@ public class SidecarDocumentTests
 
     // Acceptance Test
     // Traces to: L2-042
-    // Description: document tags each class declaration with its Angular role so the
-    // docs --services filter can keep only @Injectable services. A guard/component/
-    // plain class are classified the same way the inventory path classifies them.
+    // Description: document tags each class declaration with its Angular role, using the
+    // same classifier the inventory path uses (a guard/component/plain class come out the
+    // same way). The role surfaces the kind of each class to tooling, in parity with
+    // inventory, even though docs --services now keys off declaration kind, not role.
     [Fact]
-    public void Document_tags_class_role_for_services_filter()
+    public void Document_tags_class_role()
     {
         var dir = Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);

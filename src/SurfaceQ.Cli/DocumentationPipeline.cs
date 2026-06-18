@@ -18,7 +18,7 @@ internal static class DocumentationPipeline
         Action<string> warn,
         Action<string> error,
         bool excludeDeprecated = false,
-        bool servicesOnly = false)
+        bool serviceContracts = false)
     {
         ProjectContext context;
         try
@@ -34,7 +34,7 @@ internal static class DocumentationPipeline
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
         return BuildFromContext(
             context, manifestDir, LibraryName(manifestPath), includeImplementations,
-            info, trace, warn, error, excludeDeprecated, servicesOnly);
+            info, trace, warn, error, excludeDeprecated, serviceContracts);
     }
 
     // Folder mode: treat an arbitrary directory as a self-contained scan root, with
@@ -71,7 +71,7 @@ internal static class DocumentationPipeline
         Action<string> warn,
         Action<string> error,
         bool excludeDeprecated = false,
-        bool servicesOnly = false)
+        bool serviceContracts = false)
     {
         var sources = new SourceFileWalker().Walk(context).ToList();
         trace($"trace: walker returned {sources.Count} source file(s) for '{baseDir}'");
@@ -113,46 +113,58 @@ internal static class DocumentationPipeline
             return (null, 2);
         }
         var documented = SelectDeclarations(
-            declarations, includeImplementations, servicesOnly, excludeDeprecated, info);
+            declarations, includeImplementations, serviceContracts, excludeDeprecated, info);
         return (new LibraryApi(libraryName, documented), 0);
     }
 
-    // Applies the docs command's post-extraction filters. Services mode supersedes
-    // implementation-hiding: a service is the very implementation a token hides, so
-    // we keep service classes directly from the full set. Deprecated-declaration
-    // exclusion then composes on top of whichever set was selected. Both filters
-    // default off, so the providers caller sees every extracted declaration.
+    // Applies the docs command's post-extraction filters. Services mode documents
+    // the service *contract* surface — the interfaces an @Injectable implements,
+    // the models/types/enums those contracts are built from, and the injection
+    // tokens that wire them — and drops the concrete classes; it therefore
+    // supersedes implementation-hiding rather than composing with it. Deprecated-
+    // declaration exclusion then composes on top of whichever set was selected. Both
+    // filters default off, so the providers caller sees every extracted declaration.
     private static List<ApiDeclaration> SelectDeclarations(
         List<ApiDeclaration> declarations,
         bool includeImplementations,
-        bool servicesOnly,
+        bool serviceContracts,
         bool excludeDeprecated,
         Action<string> info)
     {
-        var kept = servicesOnly
-            ? OnlyServices(declarations, info)
+        var kept = serviceContracts
+            ? OnlyServiceContracts(declarations, info)
             : includeImplementations ? declarations : ExcludeImplementations(declarations, info);
         return excludeDeprecated ? ExcludeDeprecated(kept, info) : kept;
     }
 
-    // Keeps only classes the sidecar classified as an Angular Service (an
-    // @Injectable that is not a Component/Directive/Pipe/NgModule/Guard/Resolver/
-    // Interceptor). Other declarations — interfaces, tokens, plain classes — drop out.
-    private static List<ApiDeclaration> OnlyServices(
+    // Services mode documents what a consumer of the services codes against: the
+    // interfaces an @Injectable implements, the models/types/enums those contracts
+    // are built from, and the injection tokens that wire them — not the concrete
+    // service classes. Every class (the services and any other implementation) is
+    // reached through a token, so classes, functions, and plain consts drop out,
+    // leaving the pure contract surface.
+    private static List<ApiDeclaration> OnlyServiceContracts(
         List<ApiDeclaration> declarations,
         Action<string> info)
     {
-        var services = new List<ApiDeclaration>();
+        var kept = new List<ApiDeclaration>();
         foreach (var d in declarations)
         {
-            if (d.Kind == "class" && d.Role == "Service")
+            if (IsContractKind(d.Kind))
             {
-                services.Add(d);
+                kept.Add(d);
             }
         }
-        info($"info: services mode: documenting {services.Count} service class(es)");
-        return services;
+        info($"info: services mode: documenting {kept.Count} contract declaration(s) " +
+             "(interfaces, types, enums, injection tokens); service classes are excluded");
+        return kept;
     }
+
+    // The kinds that make up a service contract surface — the data shapes a consumer
+    // codes against. Classes (services and other implementations), functions, and
+    // plain consts are implementations, not contract, and are left out.
+    private static bool IsContractKind(string kind) =>
+        kind is "interface" or "type" or "enum" or "injection-token";
 
     // Drops every declaration carrying an @deprecated JSDoc tag (the whole type).
     // Member-level deprecations inside a kept declaration are untouched — they are

@@ -130,24 +130,6 @@ public class MarkdownRendererTests
                     < md.IndexOf("### `Zebra`", StringComparison.Ordinal));
     }
 
-    // Acceptance Test
-    // Traces to: L2-042
-    // Description: Services mode (omitContents) drops the table of contents, since
-    // the document has a single Classes section and a one-link contents list is noise.
-    [Fact]
-    public void Omits_contents_when_requested()
-    {
-        var svc = Decl("AuthService", "class");
-
-        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { svc }), omitContents: true);
-
-        Assert.DoesNotContain("## Contents", md);
-        Assert.DoesNotContain("- [Classes](#classes)", md);
-        // The section itself still renders.
-        Assert.Contains("## Classes", md);
-        Assert.Contains("### `AuthService`", md);
-    }
-
     [Fact]
     public void Renders_deprecated_column_and_callout_and_summary()
     {

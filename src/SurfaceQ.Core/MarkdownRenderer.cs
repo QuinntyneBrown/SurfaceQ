@@ -9,9 +9,7 @@ namespace SurfaceQ.Core;
 
 public sealed class MarkdownRenderer
 {
-    // omitContents drops the table of contents. Services mode passes it because the
-    // document has a single section (Classes), so a one-link contents list is noise.
-    public string Render(LibraryApi library, bool omitContents = false)
+    public string Render(LibraryApi library)
     {
         var sb = new StringBuilder();
         sb.Append("# ").Append(library.Name).Append(" — Public API\n\n");
@@ -24,10 +22,7 @@ public sealed class MarkdownRenderer
         }
 
         var deprecations = CollectDeprecations(library.Declarations);
-        if (!omitContents)
-        {
-            AppendContents(sb, sections, deprecations.Count > 0);
-        }
+        AppendContents(sb, sections, deprecations.Count > 0);
         if (deprecations.Count > 0)
         {
             AppendDeprecationsSummary(sb, deprecations);

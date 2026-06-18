@@ -222,11 +222,11 @@ public class DocsCommandTests
 
     // Acceptance Test
     // Traces to: L2-042
-    // Description: --services restricts the document to Angular @Injectable service
-    // classes and writes SERVICE_API.md (not API.md); services survive the default
-    // implementation-hiding because a service is the implementation a token hides.
+    // Description: --services documents the service *contract* surface — the interfaces
+    // an @Injectable implements, related models/types/enums, and their injection tokens
+    // — and excludes the concrete service classes; it writes SERVICE_API.md (not API.md).
     [Fact]
-    public async Task Docs_services_flag_writes_service_api_with_only_services()
+    public async Task Docs_services_flag_documents_contracts_not_classes()
     {
         var ws = NewWorkspace();
         try
@@ -234,6 +234,9 @@ public class DocsCommandTests
             CreateLibrary(ws, "auth", "@acme/auth",
                 "import { Injectable, Component, InjectionToken } from '@angular/core';\n" +
                 "export interface IAuthService { login(u: string): boolean; }\n" +
+                "export interface Credentials { user: string; password: string; }\n" +
+                "export type UserId = string;\n" +
+                "export enum AuthRole { Admin, User }\n" +
                 "export const AUTH_SERVICE = new InjectionToken<IAuthService>('AUTH_SERVICE');\n" +
                 "@Injectable({ providedIn: 'root' })\n" +
                 "export class AuthService implements IAuthService { login(u: string): boolean { return true; } }\n" +
@@ -250,12 +253,22 @@ public class DocsCommandTests
             Assert.False(File.Exists(Path.Combine(libDir, "API.md")));
 
             var doc = File.ReadAllText(Path.Combine(libDir, "SERVICE_API.md"), Encoding.UTF8);
-            // The @Injectable service is kept even though it implements an exported interface.
-            Assert.Contains("### `AuthService`", doc);
-            Assert.Contains("_Implements: `IAuthService`_", doc);
-            // Everything that is not a service is excluded.
-            Assert.DoesNotContain("## Interfaces", doc);
-            Assert.DoesNotContain("## Injection Tokens", doc);
+            // The interface the service implements is documented, plus the supporting
+            // models, types, and enums, and the injection token wiring the contract.
+            Assert.Contains("## Interfaces", doc);
+            Assert.Contains("### `IAuthService`", doc);
+            Assert.Contains("### `Credentials`", doc);
+            Assert.Contains("## Type Aliases", doc);
+            Assert.Contains("| `UserId` | `string` |", doc);
+            Assert.Contains("## Enums", doc);
+            Assert.Contains("### `AuthRole`", doc);
+            Assert.Contains("## Injection Tokens", doc);
+            Assert.Contains("| `AUTH_SERVICE` | `IAuthService` |", doc);
+            // A multi-section document keeps its table of contents.
+            Assert.Contains("## Contents", doc);
+            // The concrete service class and every other class are excluded.
+            Assert.DoesNotContain("### `AuthService`", doc);
+            Assert.DoesNotContain("## Classes", doc);
             Assert.DoesNotContain("### `PlainHelper`", doc);
             Assert.DoesNotContain("### `ThingComponent`", doc);
         }
@@ -276,9 +289,11 @@ public class DocsCommandTests
         try
         {
             CreateLibrary(ws, "auth", "@acme/auth",
-                "import { Injectable } from '@angular/core';\n" +
+                "import { Injectable, InjectionToken } from '@angular/core';\n" +
+                "export interface IAuthService { login(): boolean; }\n" +
+                "export const AUTH_SERVICE = new InjectionToken<IAuthService>('AUTH_SERVICE');\n" +
                 "@Injectable()\n" +
-                "export class AuthService { login(): boolean { return true; } }\n");
+                "export class AuthService implements IAuthService { login(): boolean { return true; } }\n");
 
             var exit = await Program.BuildRootCommand()
                 .InvokeAsync(
@@ -290,7 +305,9 @@ public class DocsCommandTests
             Assert.True(File.Exists(Path.Combine(libDir, "docs", "SERVICES.md")));
             Assert.False(File.Exists(Path.Combine(libDir, "SERVICE_API.md")));
             var doc = File.ReadAllText(Path.Combine(libDir, "docs", "SERVICES.md"), Encoding.UTF8);
-            Assert.Contains("### `AuthService`", doc);
+            // The contract interface is documented; the concrete service class is not.
+            Assert.Contains("### `IAuthService`", doc);
+            Assert.DoesNotContain("### `AuthService`", doc);
         }
         finally
         {

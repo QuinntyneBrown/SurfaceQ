@@ -59,7 +59,7 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 - `--only-public-api` *(generate / check / diff)* — include only declarations whose JSDoc carries the `@publicApi` tag (see [Curating the surface](#curating-the-surface-with-publicapi)).
 - `--output <path>` *(docs / inventory)* — Markdown file destination relative to each project directory (`API.md` for `docs`, `INVENTORY.md` for `inventory`).
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
-- `--services` *(docs only)* — document only Angular services (`@Injectable` classes). Writes `SERVICE_API.md` per library unless `--output` is given.
+- `--services` *(docs only)* — document the service contract surface: the interfaces `@Injectable` classes implement, related models/types/enums, and their injection tokens (not the service classes). Writes `SERVICE_API.md` per library unless `--output` is given.
 - `--include-deprecated-types` *(docs only)* — include declarations tagged `@deprecated`. Excluded by default (see below).
 
 ## Documenting a workspace
@@ -92,16 +92,16 @@ surfaceq docs --project ./my-workspace --include-implementations   # show it any
 
 Classes that implement only an external interface (e.g. Angular's `ControlValueAccessor`) or no interface at all are used directly and remain in the document. Hidden classes are reported on stdout so the omission is never silent.
 
-### Documenting only services
+### Documenting the service contract surface
 
-Pass `--services` to narrow each document to the library's Angular **services** — the exported `@Injectable` classes (not Components, Directives, Pipes, NgModules, Guards, Resolvers, or Interceptors). The per-library file is named `SERVICE_API.md` instead of `API.md` unless you give an explicit `--output`.
+Pass `--services` to narrow each document to the **contract** a consumer of the library's services codes against — the interfaces an `@Injectable` service implements, the models/types/enums those contracts are built from, and the injection tokens that wire them. The concrete service classes are *not* documented; they are the implementations reached through a token. The per-library file is named `SERVICE_API.md` instead of `API.md` unless you give an explicit `--output`.
 
 ```sh
 surfaceq docs --project ./my-workspace --services
 # writes libs/auth/SERVICE_API.md, …
 ```
 
-Services mode is the one case where implementation-hiding does *not* apply: a service is exactly the implementation a token hides, so an `@Injectable` class is kept even when it implements an interface exported by the same library. Interfaces, tokens, enums, and plain classes are left out — the document is just the services.
+In practice the document keeps every `interface`, `type`, `enum`, and `InjectionToken<T>`, and drops every class (services and other implementations), function, and plain const. So a token-backed service surfaces as its interface plus its injection token, while the `@Injectable` class that fulfils it stays out of the document.
 
 ### Marking things deprecated
 

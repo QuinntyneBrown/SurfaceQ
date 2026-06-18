@@ -40,13 +40,13 @@ internal static class DocsCommand
         {
             var (library, exit) = DocumentationPipeline.Build(
                 manifest, includeImplementations, info, trace, warn, error,
-                excludeDeprecated: !includeDeprecatedTypes, servicesOnly: services);
+                excludeDeprecated: !includeDeprecatedTypes, serviceContracts: services);
             if (exit != 0 || library == null)
             {
                 failed = true;
                 continue;
             }
-            if (!WriteDoc(manifest, output, renderer.Render(library, omitContents: services), info, error))
+            if (!WriteDoc(manifest, output, renderer.Render(library), info, error))
             {
                 failed = true;
             }

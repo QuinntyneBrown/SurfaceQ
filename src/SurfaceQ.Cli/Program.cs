@@ -188,7 +188,9 @@ public static class Program
     private static Option<bool> ServicesOption() =>
         new(
             "--services",
-            "Document only Angular services (@Injectable classes) into SERVICE_API.md.");
+            "Document the service contract surface — the interfaces @Injectable classes " +
+            "implement, related models/types/enums, and their injection tokens (not the " +
+            "service classes) — into SERVICE_API.md.");
 
     private static Option<bool> IncludeDeprecatedTypesOption() =>
         new(
