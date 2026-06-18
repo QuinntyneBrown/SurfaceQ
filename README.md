@@ -56,6 +56,7 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 
 - `--project <path>` — path to the project directory *or* directly to `ng-package.json`. If omitted, SurfaceQ searches upward from the current directory. For `docs` and `inventory`, this is the **workspace root** to search for projects.
 - `--verbosity <level>` — `quiet`, `minimal`, `normal` (default), `detailed`, `diagnostic`. `diagnostic` emits trace lines for the walker and sidecar.
+- `--only-public-api` *(generate / check / diff)* — include only declarations whose JSDoc carries the `@publicApi` tag (see [Curating the surface](#curating-the-surface-with-publicapi)).
 - `--output <path>` *(docs / inventory)* — Markdown file destination relative to each project directory (`API.md` for `docs`, `INVENTORY.md` for `inventory`).
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
 - `--services` *(docs only)* — document only Angular services (`@Injectable` classes). Writes `SERVICE_API.md` per library unless `--output` is given.
@@ -235,6 +236,30 @@ SurfaceQ discovers the following declarations via the TypeScript compiler API (d
 - `export * from './…'` — expanded into the declaring file's explicit re-exports
 
 `export default …` is intentionally skipped and reported as a `default-export-skipped` warning. Files named `index.ts`, `*.spec.ts`, `*.stories.ts`, the entry file itself, and anything under `node_modules/` are excluded from the scan.
+
+### Curating the surface with `@publicApi`
+
+By default every discovered export lands in `public-api.ts`. Pass
+`--only-public-api` to restrict the file to declarations that opt in with the
+`@publicApi` JSDoc tag on the declaration itself:
+
+```ts
+/** @publicApi */
+export interface Bill { id: string; }
+
+export class BillsService implements IBillsService {}   // omitted with the flag
+```
+
+The filter is kind-agnostic — interfaces, type aliases, enums, classes,
+functions, constants, and injection tokens all participate. The tag must start
+a JSDoc line (like `@deprecated`); a prose mention of `@publicApi` does not
+count. For a named re-export (`export { Bill } from './bill'` — renames,
+chained re-exports, `export *` `index.ts` barrels, and import-then-export
+included) the tag is read at the original declaration site, so barrels stay
+accurate. `check --only-public-api`
+and `diff --only-public-api` gate the same curated output in CI; without the
+flag, behavior is unchanged. Excluded exports are listed at
+`--verbosity diagnostic`.
 
 ## Output shape
 

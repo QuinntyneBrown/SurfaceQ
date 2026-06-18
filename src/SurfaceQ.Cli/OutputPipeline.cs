@@ -6,12 +6,13 @@ namespace SurfaceQ.Cli;
 
 internal static class OutputPipeline
 {
-    public static PipelineResult Build(string? project, Action<string> info, Action<string> warn, Action<string> error)
-    {
-        return Build(project, info, _ => { }, warn, error);
-    }
-
-    public static PipelineResult Build(string? project, Action<string> info, Action<string> trace, Action<string> warn, Action<string> error)
+    public static PipelineResult Build(
+        string? project,
+        bool onlyPublicApi,
+        Action<string> info,
+        Action<string> trace,
+        Action<string> warn,
+        Action<string> error)
     {
         var startPath = ResolveStartPath(project);
         var manifest = new ProjectLocator().Locate(startPath);
@@ -34,7 +35,7 @@ internal static class OutputPipeline
         var manifestDir = Path.GetDirectoryName(Path.GetFullPath(context.ManifestPath))!;
         var sources = new SourceFileWalker().Walk(context).ToList();
         trace($"trace: walker returned {sources.Count} source file(s)");
-        var (files, errors) = DiscoverAllExports(sources, manifestDir, trace, warn);
+        var (files, errors) = DiscoverAllExports(sources, manifestDir, onlyPublicApi, trace, warn);
         if (errors.Count > 0)
         {
             foreach (var msg in errors)
@@ -63,6 +64,7 @@ internal static class OutputPipeline
     private static (List<FileExports> Files, List<string> Errors) DiscoverAllExports(
         List<string> sources,
         string manifestDir,
+        bool onlyPublicApi,
         Action<string> trace,
         Action<string> warn)
     {
@@ -94,6 +96,12 @@ internal static class OutputPipeline
                 var isType = entry.GetProperty("isType").GetBoolean();
                 var declFile = entry.GetProperty("file").GetString()!;
                 var normalized = Path.GetFullPath(declFile);
+                if (onlyPublicApi && !IsPublicApi(entry))
+                {
+                    var relDecl = Path.GetRelativePath(manifestDir, normalized).Replace('\\', '/');
+                    trace($"trace: only-public-api excluded '{name}' from '{relDecl}'");
+                    continue;
+                }
                 if (!grouped.TryGetValue(normalized, out var names))
                 {
                     names = new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -141,6 +149,9 @@ internal static class OutputPipeline
         }
         return (fileExportsList, errorMessages);
     }
+
+    private static bool IsPublicApi(JsonElement entry) =>
+        entry.TryGetProperty("publicApi", out var tag) && tag.ValueKind == JsonValueKind.True;
 
     internal static string ResolveSidecarScript()
     {

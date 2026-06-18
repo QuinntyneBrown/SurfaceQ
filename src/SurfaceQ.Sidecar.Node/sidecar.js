@@ -48,11 +48,11 @@ function discover(file) {
   const exports = [];
   const warnings = [];
   const errors = [];
-  collectFromFile(file, exports, warnings, errors, new Set());
+  collectFromFile(file, exports, warnings, errors, new Set(), new Map());
   return { exports, warnings, errors };
 }
 
-function collectFromFile(file, exports, warnings, errors, visited) {
+function collectFromFile(file, exports, warnings, errors, visited, cache) {
   if (visited.has(file)) {
     return;
   }
@@ -89,7 +89,7 @@ function collectFromFile(file, exports, warnings, errors, visited) {
         if (specifierText) {
           const resolved = resolveModule(dir, specifierText);
           if (resolved) {
-            collectFromFile(resolved, exports, warnings, errors, visited);
+            collectFromFile(resolved, exports, warnings, errors, visited, cache);
           }
         }
         return;
@@ -98,7 +98,8 @@ function collectFromFile(file, exports, warnings, errors, visited) {
         const declTypeOnly = node.isTypeOnly === true;
         for (const el of node.exportClause.elements) {
           const isType = declTypeOnly || el.isTypeOnly === true;
-          exports.push({ name: el.name.text, kind: 'reexport', isType, file });
+          const publicApi = reexportPublicApi(el, specifierText, dir, sourceFile, cache);
+          exports.push({ name: el.name.text, kind: 'reexport', isType, file, publicApi });
         }
       }
       return;
@@ -110,24 +111,160 @@ function collectFromFile(file, exports, warnings, errors, visited) {
       warnings.push({ code: 'default-export-skipped', file });
       return;
     }
+    const publicApi = hasPublicApiTag(node, sourceFile);
     if (ts.isClassDeclaration(node) && node.name) {
-      exports.push({ name: node.name.text, kind: 'class', isType: false, file });
+      exports.push({ name: node.name.text, kind: 'class', isType: false, file, publicApi });
     } else if (ts.isInterfaceDeclaration(node)) {
-      exports.push({ name: node.name.text, kind: 'interface', isType: true, file });
+      exports.push({ name: node.name.text, kind: 'interface', isType: true, file, publicApi });
     } else if (ts.isTypeAliasDeclaration(node)) {
-      exports.push({ name: node.name.text, kind: 'type', isType: true, file });
+      exports.push({ name: node.name.text, kind: 'type', isType: true, file, publicApi });
     } else if (ts.isEnumDeclaration(node)) {
-      exports.push({ name: node.name.text, kind: 'enum', isType: false, file });
+      exports.push({ name: node.name.text, kind: 'enum', isType: false, file, publicApi });
     } else if (ts.isFunctionDeclaration(node) && node.name) {
-      exports.push({ name: node.name.text, kind: 'function', isType: false, file });
+      exports.push({ name: node.name.text, kind: 'function', isType: false, file, publicApi });
     } else if (ts.isVariableStatement(node)) {
+      // The JSDoc block sits on the statement, so every declarator shares it.
       for (const decl of node.declarationList.declarations) {
         if (ts.isIdentifier(decl.name)) {
-          exports.push({ name: decl.name.text, kind: 'const', isType: false, file });
+          exports.push({ name: decl.name.text, kind: 'const', isType: false, file, publicApi });
         }
       }
     }
   });
+}
+
+// The @publicApi JSDoc tag marks a declaration as part of the curated surface
+// (`generate --only-public-api`). Same comment-block selection rule as jsdoc(),
+// and — like @deprecated — only a tag at the start of a JSDoc line counts; a
+// prose mention of @publicApi does not tag the declaration.
+function hasPublicApiTag(node, sourceFile) {
+  const ranges = ts.getLeadingCommentRanges(sourceFile.text, node.getFullStart()) || [];
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const text = sourceFile.text.slice(ranges[i].pos, ranges[i].end);
+    if (!text.startsWith('/**')) {
+      continue;
+    }
+    const inner = text.replace(/^\/\*\*/, '').replace(/\*\/$/, '');
+    return inner.split('\n').some((raw) => {
+      const line = raw.replace(/^\s*\*?/, '').trim();
+      return /^@publicApi(\s|$)/.test(line);
+    });
+  }
+  return false;
+}
+
+// A named re-export carries no JSDoc of its own — the tag lives on the original
+// declaration, so resolve the declaring module (or stay in this file for a local
+// `export { X }` clause) and trace the name to it. A rename follows the original
+// name; an unresolvable module reads as untagged.
+function reexportPublicApi(el, specifierText, dir, sourceFile, cache) {
+  const originalName = el.propertyName ? el.propertyName.text : el.name.text;
+  let target = sourceFile;
+  if (specifierText) {
+    const resolved = resolveModule(dir, specifierText);
+    target = resolved ? parseCached(resolved, cache) : null;
+  }
+  if (!target) {
+    return false;
+  }
+  return declarationHasPublicApiTag(target, originalName, cache, new Set());
+}
+
+function parseCached(file, cache) {
+  if (cache.has(file)) {
+    return cache.get(file);
+  }
+  let parsed = null;
+  try {
+    const content = fs.readFileSync(file, 'utf8');
+    parsed = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+  } catch (e) {
+  }
+  cache.set(file, parsed);
+  return parsed;
+}
+
+// Whether `name` in `target` traces to a declaration tagged @publicApi. The
+// declaration may sit behind indirection — chained `export { X } from`,
+// `export *` barrels (index.ts included), or `import { X }` feeding a local
+// `export { X }` clause — so every hop is followed; `visited` (file|name pairs)
+// stops circular barrels. Merged declarations (e.g. interface + namespace)
+// count as tagged when any declaration of the name carries the tag.
+function declarationHasPublicApiTag(target, name, cache, visited) {
+  const key = target.fileName + '|' + name;
+  if (visited.has(key)) {
+    return false;
+  }
+  visited.add(key);
+  let tagged = false;
+  ts.forEachChild(target, (node) => {
+    tagged = tagged
+      || (namesDeclaration(node, name) && hasPublicApiTag(node, target))
+      || followsTaggedDeclaration(node, name, target, cache, visited);
+  });
+  return tagged;
+}
+
+// One indirection hop toward the declaration of `name` visible in `target`.
+function followsTaggedDeclaration(node, name, target, cache, visited) {
+  const dir = path.dirname(target.fileName);
+  if (ts.isExportDeclaration(node)) {
+    const specifier = node.moduleSpecifier && node.moduleSpecifier.text;
+    if (!node.exportClause) {
+      return !!specifier && taggedInModule(dir, specifier, name, cache, visited);
+    }
+    if (!ts.isNamedExports(node.exportClause)) {
+      return false;
+    }
+    for (const el of node.exportClause.elements) {
+      if (el.name.text !== name) {
+        continue;
+      }
+      const original = el.propertyName ? el.propertyName.text : el.name.text;
+      return specifier
+        ? taggedInModule(dir, specifier, original, cache, visited)
+        : declarationHasPublicApiTag(target, original, cache, visited);
+    }
+    return false;
+  }
+  if (ts.isImportDeclaration(node) && node.importClause
+      && node.importClause.namedBindings
+      && ts.isNamedImports(node.importClause.namedBindings)) {
+    const specifier = node.moduleSpecifier && node.moduleSpecifier.text;
+    for (const el of node.importClause.namedBindings.elements) {
+      if (el.name.text !== name) {
+        continue;
+      }
+      const original = el.propertyName ? el.propertyName.text : el.name.text;
+      return !!specifier && taggedInModule(dir, specifier, original, cache, visited);
+    }
+  }
+  return false;
+}
+
+function taggedInModule(dir, specifier, name, cache, visited) {
+  const resolved = resolveModule(dir, specifier);
+  const target = resolved ? parseCached(resolved, cache) : null;
+  return !!target && declarationHasPublicApiTag(target, name, cache, visited);
+}
+
+function namesDeclaration(node, name) {
+  if ((ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)
+      || ts.isTypeAliasDeclaration(node) || ts.isEnumDeclaration(node)
+      || ts.isFunctionDeclaration(node)) && node.name) {
+    return node.name.text === name;
+  }
+  if (ts.isModuleDeclaration(node) && node.name && ts.isIdentifier(node.name)) {
+    return node.name.text === name;
+  }
+  if (ts.isVariableStatement(node)) {
+    for (const decl of node.declarationList.declarations) {
+      if (ts.isIdentifier(decl.name) && decl.name.text === name) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

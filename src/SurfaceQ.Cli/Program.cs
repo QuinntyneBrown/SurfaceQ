@@ -57,15 +57,19 @@ public static class Program
     {
         var projectOption = ProjectOption();
         var verbosityOption = VerbosityOption();
+        var onlyPublicApiOption = OnlyPublicApiOption();
         var command = new Command("generate", "Write public-api.ts to disk.");
         command.AddOption(projectOption);
         command.AddOption(verbosityOption);
+        command.AddOption(onlyPublicApiOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
+            var onlyPublicApi = ctx.ParseResult.GetValueForOption(onlyPublicApiOption);
             var writers = Writers.For(ctx.Console, verbosity);
-            ctx.ExitCode = GenerateCommand.Run(project, writers.Info, writers.Trace, writers.Warn, writers.Error);
+            ctx.ExitCode = GenerateCommand.Run(
+                project, onlyPublicApi, writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
@@ -74,15 +78,19 @@ public static class Program
     {
         var projectOption = ProjectOption();
         var verbosityOption = VerbosityOption();
+        var onlyPublicApiOption = OnlyPublicApiOption();
         var command = new Command("check", "Verify public-api.ts matches expected output.");
         command.AddOption(projectOption);
         command.AddOption(verbosityOption);
+        command.AddOption(onlyPublicApiOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
+            var onlyPublicApi = ctx.ParseResult.GetValueForOption(onlyPublicApiOption);
             var writers = Writers.For(ctx.Console, verbosity);
-            ctx.ExitCode = CheckCommand.Run(project, writers.Info, writers.Warn, writers.Error);
+            ctx.ExitCode = CheckCommand.Run(
+                project, onlyPublicApi, writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
@@ -91,18 +99,27 @@ public static class Program
     {
         var projectOption = ProjectOption();
         var verbosityOption = VerbosityOption();
+        var onlyPublicApiOption = OnlyPublicApiOption();
         var command = new Command("diff", "Print a unified diff between expected and actual output.");
         command.AddOption(projectOption);
         command.AddOption(verbosityOption);
+        command.AddOption(onlyPublicApiOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
+            var onlyPublicApi = ctx.ParseResult.GetValueForOption(onlyPublicApiOption);
             var writers = Writers.For(ctx.Console, verbosity);
-            ctx.ExitCode = DiffCommand.Run(project, writers.Info, writers.Warn, writers.Error);
+            ctx.ExitCode = DiffCommand.Run(
+                project, onlyPublicApi, writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
+
+    private static Option<bool> OnlyPublicApiOption() =>
+        new(
+            "--only-public-api",
+            "Include only declarations whose JSDoc carries the @publicApi tag.");
 
     private static Command BuildDocsCommand()
     {
