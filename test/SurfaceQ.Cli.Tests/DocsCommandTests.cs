@@ -502,7 +502,9 @@ public class DocsCommandTests
         }
         finally
         {
-            Directory.Delete(ws, recursive: true);
+            // This test never creates the workspace (the point is a missing folder),
+            // so only clean up if some path materialized it.
+            if (Directory.Exists(ws)) Directory.Delete(ws, recursive: true);
         }
     }
 
