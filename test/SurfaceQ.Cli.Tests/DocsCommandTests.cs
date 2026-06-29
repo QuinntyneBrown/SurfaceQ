@@ -491,6 +491,7 @@ public class DocsCommandTests
     public async Task Folder_mode_exits_2_when_the_folder_does_not_exist()
     {
         var ws = NewWorkspace();
+        Directory.CreateDirectory(ws);
         try
         {
             var console = new TestConsole();
