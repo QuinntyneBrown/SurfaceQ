@@ -124,6 +124,7 @@ public static class Program
     private static Command BuildDocsCommand()
     {
         var projectOption = ProjectOption();
+        var folderOption = DocsFolderOption();
         var verbosityOption = VerbosityOption();
         var outputOption = OutputOption();
         var includeImplementationsOption = IncludeImplementationsOption();
@@ -131,6 +132,7 @@ public static class Program
         var includeDeprecatedTypesOption = IncludeDeprecatedTypesOption();
         var command = new Command("docs", "Document each library's public API as Markdown.");
         command.AddOption(projectOption);
+        command.AddOption(folderOption);
         command.AddOption(verbosityOption);
         command.AddOption(outputOption);
         command.AddOption(includeImplementationsOption);
@@ -139,6 +141,7 @@ public static class Program
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
+            var folder = ctx.ParseResult.GetValueForOption(folderOption);
             var verbosity = ctx.ParseResult.GetValueForOption(verbosityOption) ?? "normal";
             var includeImplementations = ctx.ParseResult.GetValueForOption(includeImplementationsOption);
             var services = ctx.ParseResult.GetValueForOption(servicesOption);
@@ -148,11 +151,18 @@ public static class Program
                 ?? (services ? "SERVICE_API.md" : "API.md");
             var writers = Writers.For(ctx.Console, verbosity);
             ctx.ExitCode = DocsCommand.Run(
-                project, output, includeImplementations, services, includeDeprecatedTypes,
+                project, folder, output, includeImplementations, services, includeDeprecatedTypes,
                 writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
+
+    private static Option<string?> DocsFolderOption() =>
+        new(
+            "--folder",
+            "Document this folder and its subfolders as a single scan root, writing one " +
+            "Markdown file at the folder root. Takes precedence over --project " +
+            "(the workspace is not scanned when set).");
 
     private static Command BuildInventoryCommand()
     {

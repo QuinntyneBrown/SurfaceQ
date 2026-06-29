@@ -415,6 +415,158 @@ public class DocsCommandTests
         }
     }
 
+    // Acceptance Test
+    // Traces to: L2-046
+    // Description: `surfaceq docs --folder <dir>` treats the directory as a
+    // self-contained scan root (no ng-package.json) and writes one API.md at the
+    // folder root documenting just the declarations found in it and its subfolders.
+    [Fact]
+    public async Task Folder_mode_documents_a_single_folder_scope()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            // A folder holding exactly one service contract: an interface, its token,
+            // and the implementing class (hidden behind the token by default).
+            var folder = Path.Combine(ws, "services", "auth");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "auth.service.contract.ts"),
+                "import { InjectionToken } from '@angular/core';\n" +
+                "export interface IAuthService { login(user: string): boolean; }\n" +
+                "export const AUTH = new InjectionToken<IAuthService>('AUTH');\n");
+            File.WriteAllText(Path.Combine(folder, "auth.service.ts"),
+                "import { Injectable } from '@angular/core';\n" +
+                "import { IAuthService } from './auth.service.contract';\n" +
+                "@Injectable({ providedIn: 'root' })\n" +
+                "export class AuthService implements IAuthService " +
+                "{ login(user: string): boolean { return true; } }\n");
+
+            var console = new TestConsole();
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--folder", folder }, console);
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(folder, "API.md"), Encoding.UTF8);
+            // The document is named after the folder and scoped to its single service.
+            Assert.Contains("# auth — Public API", doc);
+            Assert.Contains("### `IAuthService`", doc);
+            Assert.Contains("| `login` | `user: string` | `boolean` | no | – |", doc);
+            Assert.Contains("| `AUTH` | `IAuthService` |", doc);
+            // The implementation class is hidden behind its token, just as in workspace mode.
+            Assert.DoesNotContain("### `AuthService`", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_scans_subfolders_recursively()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var folder = Path.Combine(ws, "domain");
+            var nested = Path.Combine(folder, "models", "core");
+            Directory.CreateDirectory(nested);
+            File.WriteAllText(Path.Combine(nested, "status.ts"),
+                "export enum Status { Active, Archived }\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--folder", folder }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            var doc = File.ReadAllText(Path.Combine(folder, "API.md"), Encoding.UTF8);
+            Assert.Contains("### `Status`", doc);
+            Assert.Contains("| `Active` | `0` | no | – |", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_exits_2_when_the_folder_does_not_exist()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var console = new TestConsole();
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--folder", Path.Combine(ws, "nope") }, console);
+
+            Assert.Equal(2, exit);
+            Assert.Contains("does not exist", console.Error.ToString());
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_honors_services_filter_and_output_default()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var folder = Path.Combine(ws, "auth");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "auth.ts"),
+                "import { Injectable, InjectionToken } from '@angular/core';\n" +
+                "export interface IAuthService { login(): boolean; }\n" +
+                "export const AUTH = new InjectionToken<IAuthService>('AUTH');\n" +
+                "@Injectable()\n" +
+                "export class AuthService implements IAuthService { login(): boolean { return true; } }\n");
+
+            var exit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--folder", folder, "--services" }, new TestConsole());
+
+            Assert.Equal(0, exit);
+            // --services writes SERVICE_API.md at the folder root, not API.md.
+            Assert.True(File.Exists(Path.Combine(folder, "SERVICE_API.md")));
+            Assert.False(File.Exists(Path.Combine(folder, "API.md")));
+            var doc = File.ReadAllText(Path.Combine(folder, "SERVICE_API.md"), Encoding.UTF8);
+            Assert.Contains("### `IAuthService`", doc);
+            Assert.DoesNotContain("### `AuthService`", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Folder_mode_is_deterministic_across_repeated_runs()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            var folder = Path.Combine(ws, "domain");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "lib.ts"),
+                "export interface A { b(): void; c: number; }\n" +
+                "export type Id = string;\n" +
+                "export enum E { X, Y }\n");
+            var path = Path.Combine(folder, "API.md");
+
+            await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--folder", folder }, new TestConsole());
+            var first = File.ReadAllText(path, Encoding.UTF8);
+            await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--folder", folder }, new TestConsole());
+            var second = File.ReadAllText(path, Encoding.UTF8);
+
+            Assert.Equal(first, second);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
     private static string NewWorkspace() =>
         Path.Combine(Path.GetTempPath(), "sq-" + Guid.NewGuid().ToString("N"));
 

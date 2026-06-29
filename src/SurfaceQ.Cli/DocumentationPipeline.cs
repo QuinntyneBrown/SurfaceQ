@@ -38,15 +38,18 @@ internal static class DocumentationPipeline
     }
 
     // Folder mode: treat an arbitrary directory as a self-contained scan root, with
-    // no ng-package.json and no entry file to exclude. Used by the providers command
-    // when invoked with --folder. The library name is just the folder's own name.
+    // no ng-package.json and no entry file to exclude. Used by the providers and docs
+    // commands when invoked with --folder. The library name is just the folder's own
+    // name. The docs filters default off, so the providers caller is unaffected.
     public static (LibraryApi? Library, int ExitCode) BuildFromFolder(
         string folderPath,
         bool includeImplementations,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
-        Action<string> error)
+        Action<string> error,
+        bool excludeDeprecated = false,
+        bool serviceContracts = false)
     {
         var root = Path.GetFullPath(folderPath);
         if (!Directory.Exists(root))
@@ -58,7 +61,7 @@ internal static class DocumentationPipeline
         var context = new ProjectContext(root, "", root);
         return BuildFromContext(
             context, root, new DirectoryInfo(root).Name, includeImplementations,
-            info, trace, warn, error);
+            info, trace, warn, error, excludeDeprecated, serviceContracts);
     }
 
     private static (LibraryApi? Library, int ExitCode) BuildFromContext(
