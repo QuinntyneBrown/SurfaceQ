@@ -170,8 +170,9 @@ internal static class DocumentationPipeline
         kind is "interface" or "type" or "enum" or "injection-token";
 
     // Drops every declaration carrying an @deprecated JSDoc tag (the whole type).
-    // Member-level deprecations inside a kept declaration are untouched — they are
-    // still rendered with their Deprecated column. --include-deprecated-types skips this.
+    // Member-level deprecations inside a kept declaration are untouched — they still
+    // surface in the Deprecations summary (and the Deprecated column when it is
+    // enabled via --deprecated-column). --include-deprecated-types skips this.
     private static List<ApiDeclaration> ExcludeDeprecated(
         List<ApiDeclaration> declarations,
         Action<string> info)

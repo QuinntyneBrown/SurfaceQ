@@ -131,6 +131,7 @@ public static class Program
         var servicesOption = ServicesOption();
         var includeDeprecatedTypesOption = IncludeDeprecatedTypesOption();
         var contentsOption = ContentsOption();
+        var deprecatedColumnOption = DeprecatedColumnOption();
         var command = new Command("docs", "Document each library's public API as Markdown.");
         command.AddOption(projectOption);
         command.AddOption(folderOption);
@@ -140,6 +141,7 @@ public static class Program
         command.AddOption(servicesOption);
         command.AddOption(includeDeprecatedTypesOption);
         command.AddOption(contentsOption);
+        command.AddOption(deprecatedColumnOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
@@ -149,13 +151,14 @@ public static class Program
             var services = ctx.ParseResult.GetValueForOption(servicesOption);
             var includeDeprecatedTypes = ctx.ParseResult.GetValueForOption(includeDeprecatedTypesOption);
             var contents = ctx.ParseResult.GetValueForOption(contentsOption);
+            var deprecatedColumn = ctx.ParseResult.GetValueForOption(deprecatedColumnOption);
             // An explicit --output always wins; otherwise --services picks SERVICE_API.md.
             var output = ctx.ParseResult.GetValueForOption(outputOption)
                 ?? (services ? "SERVICE_API.md" : "API.md");
             var writers = Writers.For(ctx.Console, verbosity);
             ctx.ExitCode = DocsCommand.Run(
                 project, folder, output, includeImplementations, services, includeDeprecatedTypes,
-                contents, writers.Info, writers.Trace, writers.Warn, writers.Error);
+                contents, deprecatedColumn, writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
@@ -214,6 +217,12 @@ public static class Program
         new(
             "--contents",
             "Prepend a '## Contents' table of contents section (omitted by default).");
+
+    private static Option<bool> DeprecatedColumnOption() =>
+        new(
+            "--deprecated-column",
+            "Add a per-row 'Deprecated' column to the tables (omitted by default; the " +
+            "deprecation callouts and Deprecations summary table render regardless).");
 
     private static Option<string?> InventoryOutputOption()
     {

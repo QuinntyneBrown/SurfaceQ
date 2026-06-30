@@ -61,6 +61,7 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
 - `--services` *(docs only)* — document the service contract surface: the interfaces `@Injectable` classes implement, related models/types/enums, and their injection tokens (not the service classes). Writes `SERVICE_API.md` per library unless `--output` is given.
 - `--include-deprecated-types` *(docs only)* — include declarations tagged `@deprecated`. Excluded by default (see below).
+- `--deprecated-column` *(docs only)* — add a per-row `Deprecated` column to the tables. Omitted by default; the deprecation callouts and the `Deprecations` summary table render regardless.
 
 ## Documenting a workspace
 
@@ -117,11 +118,12 @@ export interface LegacyBill {
 
 By default, a declaration carrying `@deprecated` (an interface, class, enum, type alias, function, const, or injection token) is **omitted from the document** — the public reference shows only what consumers should still reach for. The exclusion is declaration-level: a `@deprecated` member inside a declaration that is itself current stays in the document and is still flagged.
 
-Pass `--include-deprecated-types` to keep deprecated declarations in. When they are present:
+Pass `--include-deprecated-types` to keep deprecated declarations in. Whenever anything is deprecated (a kept declaration, or a `@deprecated` member of a current one):
 
-- Every table gains a **`Deprecated`** column showing the reason (or `yes` when no reason is given, `no` otherwise).
-- A deprecated interface, class, or enum also gets a `> ⚠️ **Deprecated** — …` callout under its heading.
-- When anything is deprecated, a **`Deprecations`** summary table is listed at the top of the document as an at-a-glance index.
+- A deprecated interface, class, or enum gets a `> ⚠️ **Deprecated** — …` callout under its heading.
+- A **`Deprecations`** summary table is listed at the top of the document as an at-a-glance index.
+
+Pass `--deprecated-column` to additionally give every table a per-row **`Deprecated`** column showing the reason (or `yes` when no reason is given, `no` otherwise). The column is omitted by default; the callout and summary table above render with or without it.
 
 ## Inventorying a workspace
 

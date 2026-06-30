@@ -6,7 +6,9 @@ namespace SurfaceQ.Cli;
 // Each library's API.md is written next to its ng-package.json. The --output
 // value is a path relative to each library directory (default "API.md", or
 // "SERVICE_API.md" under --services). Declarations tagged @deprecated are omitted
-// unless --include-deprecated-types is passed. The table of contents is omitted
+// unless --include-deprecated-types is passed. The per-row Deprecated column is
+// omitted unless --deprecated-column is passed (the callouts and the Deprecations
+// summary table render independently of it). The table of contents is omitted
 // unless --contents is passed. All libraries are attempted; the command exits 2 if
 // any library failed. With --folder, the workspace is not scanned: the given
 // directory (and its subfolders) is documented as a single scan root and one
@@ -22,6 +24,7 @@ internal static class DocsCommand
         bool services,
         bool includeDeprecatedTypes,
         bool contents,
+        bool deprecatedColumn,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -33,7 +36,7 @@ internal static class DocsCommand
         {
             return RunFolder(
                 folder!, output, includeImplementations, services, includeDeprecatedTypes, contents,
-                info, trace, warn, error);
+                deprecatedColumn, info, trace, warn, error);
         }
 
         var root = string.IsNullOrWhiteSpace(project)
@@ -60,7 +63,7 @@ internal static class DocsCommand
                 failed = true;
                 continue;
             }
-            if (!WriteDoc(manifest, output, renderer.Render(library, contents), info, error))
+            if (!WriteDoc(manifest, output, renderer.Render(library, contents, deprecatedColumn), info, error))
             {
                 failed = true;
             }
@@ -79,6 +82,7 @@ internal static class DocsCommand
         bool services,
         bool includeDeprecatedTypes,
         bool contents,
+        bool deprecatedColumn,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -92,7 +96,7 @@ internal static class DocsCommand
             return 2;
         }
         var folderDir = Path.GetFullPath(folder);
-        var markdown = new MarkdownRenderer().Render(library, contents);
+        var markdown = new MarkdownRenderer().Render(library, contents, deprecatedColumn);
         return WriteDocToDir(folderDir, output, markdown, info, error) ? 0 : 2;
     }
 

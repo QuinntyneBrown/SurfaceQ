@@ -36,14 +36,14 @@ public class DocsCommandTests
             var authDoc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
             Assert.Contains("# @acme/auth — Public API", authDoc);
             Assert.Contains("## Interfaces", authDoc);
-            Assert.Contains("| `login` | `user: string` | `boolean` | no | – |", authDoc);
+            Assert.Contains("| `login` | `user: string` | `boolean` | – |", authDoc);
             Assert.Contains("## Injection Tokens", authDoc);
             Assert.Contains("| `AUTH` | `AuthService` |", authDoc);
 
             var dataDoc = File.ReadAllText(Path.Combine(ws, "libs", "data", "API.md"), Encoding.UTF8);
             // No package.json name -> falls back to the directory name.
             Assert.Contains("# data — Public API", dataDoc);
-            Assert.Contains("| `Active` | `0` | no | – |", dataDoc);
+            Assert.Contains("| `Active` | `0` | – |", dataDoc);
         }
         finally
         {
@@ -150,12 +150,18 @@ public class DocsCommandTests
                 "  value: string;\n" +
                 "}\n");
 
-            // Deprecated declarations are excluded by default, so the flag is needed
-            // to render OldId; the member-level deprecation on Token.raw would survive
-            // either way (Token itself is not deprecated).
+            // Deprecated declarations are excluded by default, so --include-deprecated-types
+            // is needed to render OldId; the member-level deprecation on Token.raw would
+            // survive either way (Token itself is not deprecated). --deprecated-column turns
+            // on the per-row column, which is off by default.
             var exit = await Program.BuildRootCommand()
                 .InvokeAsync(
-                    new[] { "docs", "--project", ws, "--include-deprecated-types" }, new TestConsole());
+                    new[]
+                    {
+                        "docs", "--project", ws,
+                        "--include-deprecated-types", "--deprecated-column",
+                    },
+                    new TestConsole());
 
             Assert.Equal(0, exit);
             var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
@@ -404,8 +410,9 @@ public class DocsCommandTests
             Assert.Equal(0, exit);
             var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
             Assert.Contains("### `Token`", doc);
-            Assert.Contains("| `raw` | `string` | no | use value | – |", doc);
-            // A surviving member-level deprecation still drives the summary.
+            // The per-row column is off by default, but the member survives in the table…
+            Assert.Contains("| `raw` | `string` | no | – |", doc);
+            // …and its deprecation still drives the summary.
             Assert.Contains("## Deprecations", doc);
             Assert.Contains("| `Token.raw` | property | use value |", doc);
         }
@@ -440,7 +447,7 @@ public class DocsCommandTests
             var doc = File.ReadAllText(Path.Combine(ws, "libs", "fmt", "API.md"), Encoding.UTF8);
             Assert.Contains("### `FormatDate`", doc);
             Assert.Contains("**Call signatures**", doc);
-            Assert.Contains("| `date: Date, format: string` | `string` | no | – |", doc);
+            Assert.Contains("| `date: Date, format: string` | `string` | – |", doc);
             Assert.DoesNotContain("_No public members._", doc);
             // The token still surfaces the contract type.
             Assert.Contains("| `FORMAT_DATE` | `FormatDate` |", doc);
@@ -486,7 +493,7 @@ public class DocsCommandTests
             // The document is named after the folder and scoped to its single service.
             Assert.Contains("# auth — Public API", doc);
             Assert.Contains("### `IAuthService`", doc);
-            Assert.Contains("| `login` | `user: string` | `boolean` | no | – |", doc);
+            Assert.Contains("| `login` | `user: string` | `boolean` | – |", doc);
             Assert.Contains("| `AUTH` | `IAuthService` |", doc);
             // The implementation class is hidden behind its token, just as in workspace mode.
             Assert.DoesNotContain("### `AuthService`", doc);
@@ -515,7 +522,7 @@ public class DocsCommandTests
             Assert.Equal(0, exit);
             var doc = File.ReadAllText(Path.Combine(folder, "API.md"), Encoding.UTF8);
             Assert.Contains("### `Status`", doc);
-            Assert.Contains("| `Active` | `0` | no | – |", doc);
+            Assert.Contains("| `Active` | `0` | – |", doc);
         }
         finally
         {
