@@ -9,7 +9,10 @@ namespace SurfaceQ.Core;
 
 public sealed class MarkdownRenderer
 {
-    public string Render(LibraryApi library)
+    // includeContents prepends the `## Contents` table of contents. It is off by
+    // default: most consumers paste the document into a larger page that supplies
+    // its own navigation, so the TOC is opt-in via the docs command's --contents flag.
+    public string Render(LibraryApi library, bool includeContents = false)
     {
         var sb = new StringBuilder();
         sb.Append("# ").Append(library.Name).Append(" — Public API\n\n");
@@ -22,7 +25,10 @@ public sealed class MarkdownRenderer
         }
 
         var deprecations = CollectDeprecations(library.Declarations);
-        AppendContents(sb, sections, deprecations.Count > 0);
+        if (includeContents)
+        {
+            AppendContents(sb, sections, deprecations.Count > 0);
+        }
         if (deprecations.Count > 0)
         {
             AppendDeprecationsSummary(sb, deprecations);

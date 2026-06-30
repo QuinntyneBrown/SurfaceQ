@@ -130,6 +130,7 @@ public static class Program
         var includeImplementationsOption = IncludeImplementationsOption();
         var servicesOption = ServicesOption();
         var includeDeprecatedTypesOption = IncludeDeprecatedTypesOption();
+        var contentsOption = ContentsOption();
         var command = new Command("docs", "Document each library's public API as Markdown.");
         command.AddOption(projectOption);
         command.AddOption(folderOption);
@@ -138,6 +139,7 @@ public static class Program
         command.AddOption(includeImplementationsOption);
         command.AddOption(servicesOption);
         command.AddOption(includeDeprecatedTypesOption);
+        command.AddOption(contentsOption);
         command.SetHandler((InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption);
@@ -146,13 +148,14 @@ public static class Program
             var includeImplementations = ctx.ParseResult.GetValueForOption(includeImplementationsOption);
             var services = ctx.ParseResult.GetValueForOption(servicesOption);
             var includeDeprecatedTypes = ctx.ParseResult.GetValueForOption(includeDeprecatedTypesOption);
+            var contents = ctx.ParseResult.GetValueForOption(contentsOption);
             // An explicit --output always wins; otherwise --services picks SERVICE_API.md.
             var output = ctx.ParseResult.GetValueForOption(outputOption)
                 ?? (services ? "SERVICE_API.md" : "API.md");
             var writers = Writers.For(ctx.Console, verbosity);
             ctx.ExitCode = DocsCommand.Run(
                 project, folder, output, includeImplementations, services, includeDeprecatedTypes,
-                writers.Info, writers.Trace, writers.Warn, writers.Error);
+                contents, writers.Info, writers.Trace, writers.Warn, writers.Error);
         });
         return command;
     }
@@ -206,6 +209,11 @@ public static class Program
         new(
             "--include-deprecated-types",
             "Include declarations tagged @deprecated (excluded by default).");
+
+    private static Option<bool> ContentsOption() =>
+        new(
+            "--contents",
+            "Prepend a '## Contents' table of contents section (omitted by default).");
 
     private static Option<string?> InventoryOutputOption()
     {

@@ -264,8 +264,8 @@ public class DocsCommandTests
             Assert.Contains("### `AuthRole`", doc);
             Assert.Contains("## Injection Tokens", doc);
             Assert.Contains("| `AUTH_SERVICE` | `IAuthService` |", doc);
-            // A multi-section document keeps its table of contents.
-            Assert.Contains("## Contents", doc);
+            // The table of contents is opt-in (--contents); off by default.
+            Assert.DoesNotContain("## Contents", doc);
             // The concrete service class and every other class are excluded.
             Assert.DoesNotContain("### `AuthService`", doc);
             Assert.DoesNotContain("## Classes", doc);
@@ -308,6 +308,42 @@ public class DocsCommandTests
             // The contract interface is documented; the concrete service class is not.
             Assert.Contains("### `IAuthService`", doc);
             Assert.DoesNotContain("### `AuthService`", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-047
+    // Description: The `## Contents` table of contents is omitted by default and is
+    // emitted only when --contents is passed; the body sections render either way.
+    [Fact]
+    public async Task Docs_omits_table_of_contents_unless_contents_flag_passed()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "export interface Alpha { a: string; }\n" +
+                "export interface Beta { b: string; }\n");
+            var libDir = Path.Combine(ws, "libs", "auth");
+
+            var defaultExit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+            Assert.Equal(0, defaultExit);
+            var defaultDoc = File.ReadAllText(Path.Combine(libDir, "API.md"), Encoding.UTF8);
+            Assert.DoesNotContain("## Contents", defaultDoc);
+            Assert.DoesNotContain("- [Interfaces](#interfaces)", defaultDoc);
+            Assert.Contains("## Interfaces", defaultDoc);
+
+            var contentsExit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws, "--contents" }, new TestConsole());
+            Assert.Equal(0, contentsExit);
+            var contentsDoc = File.ReadAllText(Path.Combine(libDir, "API.md"), Encoding.UTF8);
+            Assert.Contains("## Contents", contentsDoc);
+            Assert.Contains("- [Interfaces](#interfaces)", contentsDoc);
         }
         finally
         {

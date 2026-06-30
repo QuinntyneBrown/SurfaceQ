@@ -122,12 +122,25 @@ public class MarkdownRendererTests
         var zebra = Decl("Zebra", "interface");
         var apple = Decl("Apple", "interface");
 
-        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { zebra, apple }));
+        var md = new MarkdownRenderer().Render(
+            new LibraryApi("lib", new[] { zebra, apple }), includeContents: true);
 
         Assert.Contains("- [Interfaces](#interfaces)", md);
         Assert.DoesNotContain("- [Enums]", md);
         Assert.True(md.IndexOf("### `Apple`", StringComparison.Ordinal)
                     < md.IndexOf("### `Zebra`", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Contents_section_is_omitted_by_default()
+    {
+        var md = new MarkdownRenderer().Render(
+            new LibraryApi("lib", new[] { Decl("Apple", "interface") }));
+
+        // The table of contents is opt-in; the body sections still render.
+        Assert.DoesNotContain("## Contents", md);
+        Assert.DoesNotContain("- [Interfaces](#interfaces)", md);
+        Assert.Contains("## Interfaces", md);
     }
 
     [Fact]
@@ -143,7 +156,8 @@ public class MarkdownRendererTests
         });
         iface = iface with { Deprecated = true, DeprecationReason = "use Bill" };
 
-        var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { alias, iface }));
+        var md = new MarkdownRenderer().Render(
+            new LibraryApi("lib", new[] { alias, iface }), includeContents: true);
 
         // Summary section + contents entry.
         Assert.Contains("- [Deprecations](#deprecations)", md);

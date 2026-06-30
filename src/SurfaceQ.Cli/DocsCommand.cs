@@ -6,10 +6,11 @@ namespace SurfaceQ.Cli;
 // Each library's API.md is written next to its ng-package.json. The --output
 // value is a path relative to each library directory (default "API.md", or
 // "SERVICE_API.md" under --services). Declarations tagged @deprecated are omitted
-// unless --include-deprecated-types is passed. All libraries are attempted; the
-// command exits 2 if any library failed. With --folder, the workspace is not
-// scanned: the given directory (and its subfolders) is documented as a single
-// scan root and one Markdown file is written at the folder root.
+// unless --include-deprecated-types is passed. The table of contents is omitted
+// unless --contents is passed. All libraries are attempted; the command exits 2 if
+// any library failed. With --folder, the workspace is not scanned: the given
+// directory (and its subfolders) is documented as a single scan root and one
+// Markdown file is written at the folder root.
 
 internal static class DocsCommand
 {
@@ -20,6 +21,7 @@ internal static class DocsCommand
         bool includeImplementations,
         bool services,
         bool includeDeprecatedTypes,
+        bool contents,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -30,7 +32,7 @@ internal static class DocsCommand
         if (!string.IsNullOrWhiteSpace(folder))
         {
             return RunFolder(
-                folder!, output, includeImplementations, services, includeDeprecatedTypes,
+                folder!, output, includeImplementations, services, includeDeprecatedTypes, contents,
                 info, trace, warn, error);
         }
 
@@ -58,7 +60,7 @@ internal static class DocsCommand
                 failed = true;
                 continue;
             }
-            if (!WriteDoc(manifest, output, renderer.Render(library), info, error))
+            if (!WriteDoc(manifest, output, renderer.Render(library, contents), info, error))
             {
                 failed = true;
             }
@@ -76,6 +78,7 @@ internal static class DocsCommand
         bool includeImplementations,
         bool services,
         bool includeDeprecatedTypes,
+        bool contents,
         Action<string> info,
         Action<string> trace,
         Action<string> warn,
@@ -89,7 +92,7 @@ internal static class DocsCommand
             return 2;
         }
         var folderDir = Path.GetFullPath(folder);
-        var markdown = new MarkdownRenderer().Render(library);
+        var markdown = new MarkdownRenderer().Render(library, contents);
         return WriteDocToDir(folderDir, output, markdown, info, error) ? 0 : 2;
     }
 
