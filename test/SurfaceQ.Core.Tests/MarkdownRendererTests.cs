@@ -27,10 +27,10 @@ public class MarkdownRendererTests
         Assert.Contains("# @acme/auth — Public API", md);
         Assert.Contains("## Interfaces", md);
         Assert.Contains("### `Principal`", md);
-        Assert.Contains("| `readonly id` | `string` | no | no | The id. |", md);
-        Assert.Contains("| `name` | `string` | yes | no | – |", md);
+        Assert.Contains("| `readonly id` | `string` | no | The id. |", md);
+        Assert.Contains("| `name` | `string` | yes | – |", md);
         // Pipe inside the parameter type is escaped so it does not break the cell.
-        Assert.Contains("| `hasRole` | `role: Role \\| string` | `boolean` | no | Checks a role. |", md);
+        Assert.Contains("| `hasRole` | `role: Role \\| string` | `boolean` | Checks a role. |", md);
     }
 
     // Acceptance Test
@@ -50,8 +50,8 @@ public class MarkdownRendererTests
 
         Assert.Contains("### `FormatDate`", md);
         Assert.Contains("**Call signatures**", md);
-        Assert.Contains("| Parameters | Returns | Deprecated | Description |", md);
-        Assert.Contains("| `date: Date, format: string` | `string` | no | – |", md);
+        Assert.Contains("| Parameters | Returns | Description |", md);
+        Assert.Contains("| `date: Date, format: string` | `string` | – |", md);
         Assert.DoesNotContain("_No public members._", md);
     }
 
@@ -75,11 +75,11 @@ public class MarkdownRendererTests
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { iface }));
 
         Assert.Contains("**Call signatures**", md);
-        Assert.Contains("| `x: number` | `number` | no | – |", md);
+        Assert.Contains("| `x: number` | `number` | – |", md);
         Assert.Contains("**Properties**", md);
-        Assert.Contains("| `readonly count` | `number` | no | no | – |", md);
+        Assert.Contains("| `readonly count` | `number` | no | – |", md);
         Assert.Contains("**Methods**", md);
-        Assert.Contains("| `reset` | `()` | `void` | no | – |", md);
+        Assert.Contains("| `reset` | `()` | `void` | – |", md);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class MarkdownRendererTests
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { token }));
 
         Assert.Contains("## Injection Tokens", md);
-        Assert.Contains("| `AUTH_SERVICE` | `AuthService` | no | the auth backend |", md);
+        Assert.Contains("| `AUTH_SERVICE` | `AuthService` | the auth backend |", md);
     }
 
     [Fact]
@@ -112,8 +112,8 @@ public class MarkdownRendererTests
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { role, alias }));
 
         Assert.Contains("### `Role`", md);
-        Assert.Contains("| `Guest` | `0` | no | – |", md);
-        Assert.Contains("| `AuthState` | `string \\| Principal` | no | Auth state. |", md);
+        Assert.Contains("| `Guest` | `0` | – |", md);
+        Assert.Contains("| `AuthState` | `string \\| Principal` | Auth state. |", md);
     }
 
     [Fact]
@@ -143,6 +143,11 @@ public class MarkdownRendererTests
         Assert.Contains("## Interfaces", md);
     }
 
+    // Acceptance Test
+    // Traces to: L2-030, L2-048
+    // Description: With the Deprecated column opted in, tables carry the column
+    // (reason / yes / no), deprecated headings get a callout, and the Deprecations
+    // summary lists every deprecated declaration and member.
     [Fact]
     public void Renders_deprecated_column_and_callout_and_summary()
     {
@@ -157,7 +162,8 @@ public class MarkdownRendererTests
         iface = iface with { Deprecated = true, DeprecationReason = "use Bill" };
 
         var md = new MarkdownRenderer().Render(
-            new LibraryApi("lib", new[] { alias, iface }), includeContents: true);
+            new LibraryApi("lib", new[] { alias, iface }),
+            includeContents: true, includeDeprecatedColumn: true);
 
         // Summary section + contents entry.
         Assert.Contains("- [Deprecations](#deprecations)", md);
@@ -180,8 +186,39 @@ public class MarkdownRendererTests
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { Decl("Id", "type") }));
         Assert.DoesNotContain("## Deprecations", md);
         Assert.DoesNotContain("Deprecations](#deprecations)", md);
-        // Column header is still present (always rendered), value is "no".
-        Assert.Contains("| Name | Definition | Deprecated | Description |", md);
+    }
+
+    // Acceptance Test
+    // Traces to: L2-048
+    // Description: The Deprecated column is omitted from every table by default;
+    // a surviving member-level deprecation is still flagged via the Deprecations
+    // summary. Opting in restores the column.
+    [Fact]
+    public void Omits_deprecated_column_by_default_and_renders_it_when_opted_in()
+    {
+        var alias = Decl("Id", "type") with { Definition = "string" };
+        var iface = Decl("Token", "interface", members: new[]
+        {
+            Property("raw", "string", optional: false, isReadonly: false, doc: "",
+                deprecated: true, deprecationReason: "use value"),
+        });
+
+        var library = new LibraryApi("lib", new[] { alias, iface });
+        var byDefault = new MarkdownRenderer().Render(library);
+
+        Assert.DoesNotContain("Deprecated |", byDefault);
+        Assert.Contains("| Name | Definition | Description |", byDefault);
+        Assert.Contains("| Name | Type | Optional | Description |", byDefault);
+        Assert.Contains("| `raw` | `string` | no | – |", byDefault);
+        // The member's deprecation still surfaces through the summary table.
+        Assert.Contains("## Deprecations", byDefault);
+        Assert.Contains("| `Token.raw` | property | use value |", byDefault);
+
+        var optedIn = new MarkdownRenderer().Render(library, includeDeprecatedColumn: true);
+
+        Assert.Contains("| Name | Definition | Deprecated | Description |", optedIn);
+        Assert.Contains("| Name | Type | Optional | Deprecated | Description |", optedIn);
+        Assert.Contains("| `raw` | `string` | no | use value | – |", optedIn);
     }
 
     [Fact]
@@ -201,7 +238,7 @@ public class MarkdownRendererTests
 
         var md = new MarkdownRenderer().Render(new LibraryApi("lib", new[] { alias }));
 
-        Assert.Contains("| `Slug` | `` `a-${string}` `` | no | – |", md);
+        Assert.Contains("| `Slug` | `` `a-${string}` `` | – |", md);
     }
 
     private static ApiDeclaration Decl(

@@ -36,14 +36,14 @@ public class DocsCommandTests
             var authDoc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
             Assert.Contains("# @acme/auth — Public API", authDoc);
             Assert.Contains("## Interfaces", authDoc);
-            Assert.Contains("| `login` | `user: string` | `boolean` | no | – |", authDoc);
+            Assert.Contains("| `login` | `user: string` | `boolean` | – |", authDoc);
             Assert.Contains("## Injection Tokens", authDoc);
             Assert.Contains("| `AUTH` | `AuthService` |", authDoc);
 
             var dataDoc = File.ReadAllText(Path.Combine(ws, "libs", "data", "API.md"), Encoding.UTF8);
             // No package.json name -> falls back to the directory name.
             Assert.Contains("# data — Public API", dataDoc);
-            Assert.Contains("| `Active` | `0` | no | – |", dataDoc);
+            Assert.Contains("| `Active` | `0` | – |", dataDoc);
         }
         finally
         {
@@ -382,9 +382,10 @@ public class DocsCommandTests
     }
 
     // Acceptance Test
-    // Traces to: L2-043
+    // Traces to: L2-043, L2-048
     // Description: The default exclusion is declaration-level only — a deprecated
-    // member inside a non-deprecated declaration is kept and still flagged.
+    // member inside a non-deprecated declaration is kept, and (with the Deprecated
+    // column absent by default) it is still flagged via the Deprecations summary.
     [Fact]
     public async Task Docs_keeps_deprecated_members_of_live_declarations_by_default()
     {
@@ -404,10 +405,48 @@ public class DocsCommandTests
             Assert.Equal(0, exit);
             var doc = File.ReadAllText(Path.Combine(ws, "libs", "auth", "API.md"), Encoding.UTF8);
             Assert.Contains("### `Token`", doc);
-            Assert.Contains("| `raw` | `string` | no | use value | – |", doc);
+            Assert.Contains("| `raw` | `string` | no | – |", doc);
             // A surviving member-level deprecation still drives the summary.
             Assert.Contains("## Deprecations", doc);
             Assert.Contains("| `Token.raw` | property | use value |", doc);
+        }
+        finally
+        {
+            Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    // Acceptance Test
+    // Traces to: L2-048
+    // Description: The Deprecated column is omitted from every table by default and
+    // rendered only when --include-deprecated-types is passed.
+    [Fact]
+    public async Task Docs_omits_deprecated_column_unless_include_deprecated_types_passed()
+    {
+        var ws = NewWorkspace();
+        try
+        {
+            CreateLibrary(ws, "auth", "@acme/auth",
+                "export interface Token { value: string; }\n" +
+                "export type Id = string;\n");
+            var apiPath = Path.Combine(ws, "libs", "auth", "API.md");
+
+            var defaultExit = await Program.BuildRootCommand()
+                .InvokeAsync(new[] { "docs", "--project", ws }, new TestConsole());
+            Assert.Equal(0, defaultExit);
+            var defaultDoc = File.ReadAllText(apiPath, Encoding.UTF8);
+            Assert.DoesNotContain("Deprecated |", defaultDoc);
+            Assert.Contains("| Name | Type | Optional | Description |", defaultDoc);
+            Assert.Contains("| Name | Definition | Description |", defaultDoc);
+
+            var optedInExit = await Program.BuildRootCommand()
+                .InvokeAsync(
+                    new[] { "docs", "--project", ws, "--include-deprecated-types" }, new TestConsole());
+            Assert.Equal(0, optedInExit);
+            var optedInDoc = File.ReadAllText(apiPath, Encoding.UTF8);
+            Assert.Contains("| Name | Type | Optional | Deprecated | Description |", optedInDoc);
+            Assert.Contains("| Name | Definition | Deprecated | Description |", optedInDoc);
+            Assert.Contains("| `value` | `string` | no | no | – |", optedInDoc);
         }
         finally
         {
@@ -440,7 +479,7 @@ public class DocsCommandTests
             var doc = File.ReadAllText(Path.Combine(ws, "libs", "fmt", "API.md"), Encoding.UTF8);
             Assert.Contains("### `FormatDate`", doc);
             Assert.Contains("**Call signatures**", doc);
-            Assert.Contains("| `date: Date, format: string` | `string` | no | – |", doc);
+            Assert.Contains("| `date: Date, format: string` | `string` | – |", doc);
             Assert.DoesNotContain("_No public members._", doc);
             // The token still surfaces the contract type.
             Assert.Contains("| `FORMAT_DATE` | `FormatDate` |", doc);
@@ -486,7 +525,7 @@ public class DocsCommandTests
             // The document is named after the folder and scoped to its single service.
             Assert.Contains("# auth — Public API", doc);
             Assert.Contains("### `IAuthService`", doc);
-            Assert.Contains("| `login` | `user: string` | `boolean` | no | – |", doc);
+            Assert.Contains("| `login` | `user: string` | `boolean` | – |", doc);
             Assert.Contains("| `AUTH` | `IAuthService` |", doc);
             // The implementation class is hidden behind its token, just as in workspace mode.
             Assert.DoesNotContain("### `AuthService`", doc);
@@ -515,7 +554,7 @@ public class DocsCommandTests
             Assert.Equal(0, exit);
             var doc = File.ReadAllText(Path.Combine(folder, "API.md"), Encoding.UTF8);
             Assert.Contains("### `Status`", doc);
-            Assert.Contains("| `Active` | `0` | no | – |", doc);
+            Assert.Contains("| `Active` | `0` | – |", doc);
         }
         finally
         {

@@ -6,7 +6,8 @@ namespace SurfaceQ.Cli;
 // Each library's API.md is written next to its ng-package.json. The --output
 // value is a path relative to each library directory (default "API.md", or
 // "SERVICE_API.md" under --services). Declarations tagged @deprecated are omitted
-// unless --include-deprecated-types is passed. The table of contents is omitted
+// unless --include-deprecated-types is passed; the same flag opts the Deprecated
+// column into the tables (absent by default). The table of contents is omitted
 // unless --contents is passed. All libraries are attempted; the command exits 2 if
 // any library failed. With --folder, the workspace is not scanned: the given
 // directory (and its subfolders) is documented as a single scan root and one
@@ -60,7 +61,9 @@ internal static class DocsCommand
                 failed = true;
                 continue;
             }
-            if (!WriteDoc(manifest, output, renderer.Render(library, contents), info, error))
+            // --include-deprecated-types also opts the Deprecated column into the tables.
+            var markdown = renderer.Render(library, contents, includeDeprecatedColumn: includeDeprecatedTypes);
+            if (!WriteDoc(manifest, output, markdown, info, error))
             {
                 failed = true;
             }
@@ -92,7 +95,8 @@ internal static class DocsCommand
             return 2;
         }
         var folderDir = Path.GetFullPath(folder);
-        var markdown = new MarkdownRenderer().Render(library, contents);
+        var markdown = new MarkdownRenderer().Render(
+            library, contents, includeDeprecatedColumn: includeDeprecatedTypes);
         return WriteDocToDir(folderDir, output, markdown, info, error) ? 0 : 2;
     }
 
