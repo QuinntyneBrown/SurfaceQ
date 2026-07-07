@@ -208,7 +208,8 @@ public static class Program
     private static Option<bool> IncludeDeprecatedTypesOption() =>
         new(
             "--include-deprecated-types",
-            "Include declarations tagged @deprecated (excluded by default).");
+            "Include declarations tagged @deprecated and add a Deprecated column " +
+            "to every table (both off by default).");
 
     private static Option<bool> ContentsOption() =>
         new(

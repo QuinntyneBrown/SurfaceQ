@@ -12,7 +12,11 @@ public sealed class MarkdownRenderer
     // includeContents prepends the `## Contents` table of contents. It is off by
     // default: most consumers paste the document into a larger page that supplies
     // its own navigation, so the TOC is opt-in via the docs command's --contents flag.
-    public string Render(LibraryApi library, bool includeContents = false)
+    // includeDeprecatedColumn adds a `Deprecated` cell to every table. It is off by
+    // default (deprecated declarations are excluded then anyway, so the column would
+    // read `no` everywhere) and opts in via --include-deprecated-types; the
+    // `Deprecations` summary and heading callouts render independently of it.
+    public string Render(LibraryApi library, bool includeContents = false, bool includeDeprecatedColumn = false)
     {
         var sb = new StringBuilder();
         sb.Append("# ").Append(library.Name).Append(" — Public API\n\n");
@@ -35,7 +39,7 @@ public sealed class MarkdownRenderer
         }
         foreach (var section in sections)
         {
-            section.Append(sb);
+            section.Append(sb, includeDeprecatedColumn);
         }
         return sb.ToString();
     }
@@ -58,7 +62,7 @@ public sealed class MarkdownRenderer
         string title,
         IReadOnlyList<ApiDeclaration> all,
         string kind,
-        Action<StringBuilder, IReadOnlyList<ApiDeclaration>> body)
+        Action<StringBuilder, IReadOnlyList<ApiDeclaration>, bool> body)
     {
         var matching = all
             .Where(d => d.Kind == kind)
@@ -133,7 +137,8 @@ public sealed class MarkdownRenderer
 
     // --- Interfaces and classes -------------------------------------------
 
-    private static void AppendTypeBlock(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
+    private static void AppendTypeBlock(
+        StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations, bool includeDeprecatedColumn)
     {
         foreach (var d in declarations)
         {
@@ -151,161 +156,153 @@ public sealed class MarkdownRenderer
                 sb.Append("_No public members._\n\n");
                 continue;
             }
-            AppendCallSignatureTable(sb, calls);
-            AppendPropertyTable(sb, properties);
-            AppendMethodTable(sb, methods);
+            AppendCallSignatureTable(sb, calls, includeDeprecatedColumn);
+            AppendPropertyTable(sb, properties, includeDeprecatedColumn);
+            AppendMethodTable(sb, methods, includeDeprecatedColumn);
         }
     }
 
     // A callable interface (a function exposed via interface + token) carries one or
     // more nameless call signatures. They lead the member tables because being
     // callable is the interface's headline; overloads keep their source order.
-    private static void AppendCallSignatureTable(StringBuilder sb, List<ApiMember> calls)
+    private static void AppendCallSignatureTable(
+        StringBuilder sb, List<ApiMember> calls, bool includeDeprecatedColumn)
     {
         if (calls.Count == 0)
         {
             return;
         }
         sb.Append("**Call signatures**\n\n");
-        sb.Append("| Parameters | Returns | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Parameters", "Returns");
         foreach (var c in calls)
         {
             sb.Append("| ").Append(Code(FormatParameters(c.Parameters)))
-              .Append(" | ").Append(Code(c.ReturnType))
-              .Append(" | ").Append(DeprecatedCell(c.Deprecated, c.DeprecationReason))
-              .Append(" | ").Append(Cell(c.Doc))
-              .Append(" |\n");
+              .Append(" | ").Append(Code(c.ReturnType));
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, c.Deprecated, c.DeprecationReason);
+            sb.Append(" | ").Append(Cell(c.Doc)).Append(" |\n");
         }
         sb.Append('\n');
     }
 
-    private static void AppendPropertyTable(StringBuilder sb, List<ApiMember> properties)
+    private static void AppendPropertyTable(
+        StringBuilder sb, List<ApiMember> properties, bool includeDeprecatedColumn)
     {
         if (properties.Count == 0)
         {
             return;
         }
         sb.Append("**Properties**\n\n");
-        sb.Append("| Name | Type | Optional | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Name", "Type", "Optional");
         foreach (var p in properties)
         {
             var name = p.Readonly ? "readonly " + p.Name : p.Name;
             sb.Append("| ").Append(Code(name))
               .Append(" | ").Append(Code(p.Type))
-              .Append(" | ").Append(p.Optional ? "yes" : "no")
-              .Append(" | ").Append(DeprecatedCell(p.Deprecated, p.DeprecationReason))
-              .Append(" | ").Append(Cell(p.Doc))
-              .Append(" |\n");
+              .Append(" | ").Append(p.Optional ? "yes" : "no");
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, p.Deprecated, p.DeprecationReason);
+            sb.Append(" | ").Append(Cell(p.Doc)).Append(" |\n");
         }
         sb.Append('\n');
     }
 
-    private static void AppendMethodTable(StringBuilder sb, List<ApiMember> methods)
+    private static void AppendMethodTable(
+        StringBuilder sb, List<ApiMember> methods, bool includeDeprecatedColumn)
     {
         if (methods.Count == 0)
         {
             return;
         }
         sb.Append("**Methods**\n\n");
-        sb.Append("| Method | Parameters | Returns | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Method", "Parameters", "Returns");
         foreach (var m in methods)
         {
             var name = m.Optional ? m.Name + "?" : m.Name;
             sb.Append("| ").Append(Code(name))
               .Append(" | ").Append(Code(FormatParameters(m.Parameters)))
-              .Append(" | ").Append(Code(m.ReturnType))
-              .Append(" | ").Append(DeprecatedCell(m.Deprecated, m.DeprecationReason))
-              .Append(" | ").Append(Cell(m.Doc))
-              .Append(" |\n");
+              .Append(" | ").Append(Code(m.ReturnType));
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, m.Deprecated, m.DeprecationReason);
+            sb.Append(" | ").Append(Cell(m.Doc)).Append(" |\n");
         }
         sb.Append('\n');
     }
 
     // --- Other kinds -------------------------------------------------------
 
-    private static void AppendTokensTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
+    private static void AppendTokensTable(
+        StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations, bool includeDeprecatedColumn)
     {
         sb.Append("Inject these tokens and depend on the contract type, not a concrete implementation.\n\n");
-        sb.Append("| Token | Contract | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Token", "Contract");
         foreach (var d in declarations)
         {
             var description = !string.IsNullOrEmpty(d.Doc) ? d.Doc : d.Description;
             sb.Append("| ").Append(Code(d.Name))
-              .Append(" | ").Append(Code(d.Contract))
-              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
-              .Append(" | ").Append(Cell(description))
-              .Append(" |\n");
+              .Append(" | ").Append(Code(d.Contract));
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, d.Deprecated, d.DeprecationReason);
+            sb.Append(" | ").Append(Cell(description)).Append(" |\n");
         }
         sb.Append('\n');
     }
 
-    private static void AppendEnumBlock(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
+    private static void AppendEnumBlock(
+        StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations, bool includeDeprecatedColumn)
     {
         foreach (var d in declarations)
         {
             sb.Append("### `").Append(d.Name).Append("`\n\n");
             AppendDeprecationCallout(sb, d.Deprecated, d.DeprecationReason);
             AppendDocLine(sb, d.Doc);
-            sb.Append("| Member | Value | Deprecated | Description |\n");
-            sb.Append("| --- | --- | --- | --- |\n");
+            AppendTableHeader(sb, includeDeprecatedColumn, "Member", "Value");
             foreach (var m in d.EnumMembers)
             {
                 sb.Append("| ").Append(Code(m.Name))
-                  .Append(" | ").Append(Code(m.Value))
-                  .Append(" | ").Append(DeprecatedCell(m.Deprecated, m.DeprecationReason))
-                  .Append(" | ").Append(Cell(m.Doc))
-                  .Append(" |\n");
+                  .Append(" | ").Append(Code(m.Value));
+                AppendDeprecatedCell(sb, includeDeprecatedColumn, m.Deprecated, m.DeprecationReason);
+                sb.Append(" | ").Append(Cell(m.Doc)).Append(" |\n");
             }
             sb.Append('\n');
         }
     }
 
-    private static void AppendTypeAliasTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
+    private static void AppendTypeAliasTable(
+        StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations, bool includeDeprecatedColumn)
     {
-        sb.Append("| Name | Definition | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Name", "Definition");
         foreach (var d in declarations)
         {
             sb.Append("| ").Append(Code(d.Name))
-              .Append(" | ").Append(Code(d.Definition))
-              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
-              .Append(" | ").Append(Cell(d.Doc))
-              .Append(" |\n");
+              .Append(" | ").Append(Code(d.Definition));
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, d.Deprecated, d.DeprecationReason);
+            sb.Append(" | ").Append(Cell(d.Doc)).Append(" |\n");
         }
         sb.Append('\n');
     }
 
-    private static void AppendFunctionTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
+    private static void AppendFunctionTable(
+        StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations, bool includeDeprecatedColumn)
     {
-        sb.Append("| Function | Parameters | Returns | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Function", "Parameters", "Returns");
         foreach (var d in declarations)
         {
             sb.Append("| ").Append(Code(d.Name))
               .Append(" | ").Append(Code(FormatParameters(d.Parameters)))
-              .Append(" | ").Append(Code(d.ReturnType))
-              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
-              .Append(" | ").Append(Cell(d.Doc))
-              .Append(" |\n");
+              .Append(" | ").Append(Code(d.ReturnType));
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, d.Deprecated, d.DeprecationReason);
+            sb.Append(" | ").Append(Cell(d.Doc)).Append(" |\n");
         }
         sb.Append('\n');
     }
 
-    private static void AppendConstTable(StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations)
+    private static void AppendConstTable(
+        StringBuilder sb, IReadOnlyList<ApiDeclaration> declarations, bool includeDeprecatedColumn)
     {
-        sb.Append("| Name | Type | Deprecated | Description |\n");
-        sb.Append("| --- | --- | --- | --- |\n");
+        AppendTableHeader(sb, includeDeprecatedColumn, "Name", "Type");
         foreach (var d in declarations)
         {
             sb.Append("| ").Append(Code(d.Name))
-              .Append(" | ").Append(Code(d.Type))
-              .Append(" | ").Append(DeprecatedCell(d.Deprecated, d.DeprecationReason))
-              .Append(" | ").Append(Cell(d.Doc))
-              .Append(" |\n");
+              .Append(" | ").Append(Code(d.Type));
+            AppendDeprecatedCell(sb, includeDeprecatedColumn, d.Deprecated, d.DeprecationReason);
+            sb.Append(" | ").Append(Cell(d.Doc)).Append(" |\n");
         }
         sb.Append('\n');
     }
@@ -381,6 +378,30 @@ public sealed class MarkdownRenderer
         return EscapePipes(value);
     }
 
+    // Emits the header and separator rows for a table whose columns are the given
+    // leading names, then Deprecated (only when opted in), then Description.
+    private static void AppendTableHeader(
+        StringBuilder sb, bool includeDeprecatedColumn, params string[] leadingColumns)
+    {
+        var columns = leadingColumns.ToList();
+        if (includeDeprecatedColumn)
+        {
+            columns.Add("Deprecated");
+        }
+        columns.Add("Description");
+        sb.Append("| ").Append(string.Join(" | ", columns)).Append(" |\n");
+        sb.Append("|").Append(string.Concat(Enumerable.Repeat(" --- |", columns.Count))).Append('\n');
+    }
+
+    private static void AppendDeprecatedCell(
+        StringBuilder sb, bool includeDeprecatedColumn, bool deprecated, string reason)
+    {
+        if (includeDeprecatedColumn)
+        {
+            sb.Append(" | ").Append(DeprecatedCell(deprecated, reason));
+        }
+    }
+
     private static string DeprecatedCell(bool deprecated, string reason)
     {
         if (!deprecated)
@@ -428,12 +449,12 @@ public sealed class MarkdownRenderer
     private sealed record Section(
         string Title,
         IReadOnlyList<ApiDeclaration> Declarations,
-        Action<StringBuilder, IReadOnlyList<ApiDeclaration>> Body)
+        Action<StringBuilder, IReadOnlyList<ApiDeclaration>, bool> Body)
     {
-        public void Append(StringBuilder sb)
+        public void Append(StringBuilder sb, bool includeDeprecatedColumn)
         {
             sb.Append("## ").Append(Title).Append("\n\n");
-            Body(sb, Declarations);
+            Body(sb, Declarations, includeDeprecatedColumn);
         }
     }
 }

@@ -60,7 +60,7 @@ That writes `src/public-api.ts` (or whatever `entryFile` is declared in your man
 - `--output <path>` *(docs / inventory)* — Markdown file destination relative to each project directory (`API.md` for `docs`, `INVENTORY.md` for `inventory`).
 - `--include-implementations` *(docs only)* — include classes that implement an exported interface. Hidden by default (see below).
 - `--services` *(docs only)* — document the service contract surface: the interfaces `@Injectable` classes implement, related models/types/enums, and their injection tokens (not the service classes). Writes `SERVICE_API.md` per library unless `--output` is given.
-- `--include-deprecated-types` *(docs only)* — include declarations tagged `@deprecated`. Excluded by default (see below).
+- `--include-deprecated-types` *(docs only)* — include declarations tagged `@deprecated` and add a `Deprecated` column to every table. Both are off by default (see below).
 
 ## Documenting a workspace
 
@@ -115,13 +115,13 @@ export interface LegacyBill {
 }
 ```
 
-By default, a declaration carrying `@deprecated` (an interface, class, enum, type alias, function, const, or injection token) is **omitted from the document** — the public reference shows only what consumers should still reach for. The exclusion is declaration-level: a `@deprecated` member inside a declaration that is itself current stays in the document and is still flagged.
+By default, a declaration carrying `@deprecated` (an interface, class, enum, type alias, function, const, or injection token) is **omitted from the document** — the public reference shows only what consumers should still reach for. The exclusion is declaration-level: a `@deprecated` member inside a declaration that is itself current stays in the document and is still flagged via the `Deprecations` summary. The per-row `Deprecated` column is also omitted by default, so the tables carry no deprecation noise.
 
-Pass `--include-deprecated-types` to keep deprecated declarations in. When they are present:
+Pass `--include-deprecated-types` to keep deprecated declarations in and surface the detail:
 
 - Every table gains a **`Deprecated`** column showing the reason (or `yes` when no reason is given, `no` otherwise).
 - A deprecated interface, class, or enum also gets a `> ⚠️ **Deprecated** — …` callout under its heading.
-- When anything is deprecated, a **`Deprecations`** summary table is listed at the top of the document as an at-a-glance index.
+- When anything is deprecated (with or without the flag), a **`Deprecations`** summary table is listed at the top of the document as an at-a-glance index.
 
 ## Inventorying a workspace
 
